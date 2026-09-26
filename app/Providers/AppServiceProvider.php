@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Symfony\Component\Mailer\Bridge\Mailtrap\Transport\MailtrapTransportFactory;
 use Symfony\Component\Mailer\Transport\Dsn;
 use App\Models\User;
@@ -20,6 +21,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if (app()->environment('production') || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
+            URL::forceScheme('https');
+        }
         Mail::extend('mailtrap', function ($config) {
             $factory = new MailtrapTransportFactory();
             
