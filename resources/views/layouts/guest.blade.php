@@ -6,8 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@hasSection('title')@yield('title') — {{ config('app.name', 'Vyapar ERP') }}@else{{ $title ?? 'Authentication
-        — ' . config('app.name', 'Vyapar ERP') }} @endif </title>
+    <title>@hasSection('title')@yield('title') — {{ config('app.name', 'ERPSaaS') }}@else{{ $title ?? 'Operations Platform — ' . config('app.name', 'ERPSaaS') }}@endif</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="alternate icon" type="image/png" href="{{ asset('favicon.png') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
 
     <!-- Google Fonts: Outfit, Plus Jakarta Sans, IBM Plex Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

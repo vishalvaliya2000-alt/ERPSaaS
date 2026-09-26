@@ -19,6 +19,7 @@ if [ ! -f /var/www/html/.env ]; then
 fi
 
 # 2. Production defaults for rock-solid stability
+export APP_NAME=${APP_NAME:-ERPSaaS}
 export APP_ENV=${APP_ENV:-production}
 export APP_DEBUG=${APP_DEBUG:-false}
 export SESSION_DRIVER=${SESSION_DRIVER:-file}
@@ -27,6 +28,7 @@ export QUEUE_CONNECTION=${QUEUE_CONNECTION:-sync}
 export LOG_CHANNEL=${LOG_CHANNEL:-stderr}
 
 # Ensure key configuration exists in .env
+grep -q "^APP_NAME=" /var/www/html/.env && sed -i "s|^APP_NAME=.*|APP_NAME=\"${APP_NAME}\"|g" /var/www/html/.env || echo "APP_NAME=\"${APP_NAME}\"" >> /var/www/html/.env
 grep -q "^SESSION_DRIVER=" /var/www/html/.env && sed -i "s|^SESSION_DRIVER=.*|SESSION_DRIVER=${SESSION_DRIVER}|g" /var/www/html/.env || echo "SESSION_DRIVER=${SESSION_DRIVER}" >> /var/www/html/.env
 grep -q "^CACHE_STORE=" /var/www/html/.env && sed -i "s|^CACHE_STORE=.*|CACHE_STORE=${CACHE_STORE}|g" /var/www/html/.env || echo "CACHE_STORE=${CACHE_STORE}" >> /var/www/html/.env
 grep -q "^QUEUE_CONNECTION=" /var/www/html/.env && sed -i "s|^QUEUE_CONNECTION=.*|QUEUE_CONNECTION=${QUEUE_CONNECTION}|g" /var/www/html/.env || echo "QUEUE_CONNECTION=${QUEUE_CONNECTION}" >> /var/www/html/.env

@@ -8,6 +8,11 @@
     <title>@hasSection('title')@yield('title') — {{ $currentTenant?->name ?? config('app.name', 'ERPSaaS') }}@else{{
         $title ?? ($currentTenant?->name ?? config('app.name', 'ERPSaaS')) }} — AI Operations & ERP @endif </title>
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="alternate icon" type="image/png" href="{{ asset('favicon.png') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
+
     <!-- Google Fonts: Outfit & Plus Jakarta Sans & IBM Plex Mono (ERPSaaS Design System) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
