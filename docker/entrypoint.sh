@@ -44,27 +44,40 @@ else
     export APP_KEY=$(grep '^APP_KEY=' /var/www/html/.env | cut -d '=' -f2- | tr -d '\r')
 fi
 
-# 4. Storage & database permissions
+# 4. Database configuration (TiDB Cloud / MySQL or SQLite fallback)
+if [ -n "$DB_HOST" ]; then
+    echo "Configuring MySQL / TiDB database connection for ${DB_HOST}..."
+    export DB_CONNECTION=${DB_CONNECTION:-mysql}
+    grep -q "^DB_CONNECTION=" /var/www/html/.env && sed -i "s|^DB_CONNECTION=.*|DB_CONNECTION=${DB_CONNECTION}|g" /var/www/html/.env || echo "DB_CONNECTION=${DB_CONNECTION}" >> /var/www/html/.env
+    grep -q "^DB_HOST=" /var/www/html/.env && sed -i "s|^DB_HOST=.*|DB_HOST=${DB_HOST}|g" /var/www/html/.env || echo "DB_HOST=${DB_HOST}" >> /var/www/html/.env
+    [ -n "$DB_PORT" ] && (grep -q "^DB_PORT=" /var/www/html/.env && sed -i "s|^DB_PORT=.*|DB_PORT=${DB_PORT}|g" /var/www/html/.env || echo "DB_PORT=${DB_PORT}" >> /var/www/html/.env)
+    [ -n "$DB_DATABASE" ] && (grep -q "^DB_DATABASE=" /var/www/html/.env && sed -i "s|^DB_DATABASE=.*|DB_DATABASE=${DB_DATABASE}|g" /var/www/html/.env || echo "DB_DATABASE=${DB_DATABASE}" >> /var/www/html/.env)
+    [ -n "$DB_USERNAME" ] && (grep -q "^DB_USERNAME=" /var/www/html/.env && sed -i "s|^DB_USERNAME=.*|DB_USERNAME=${DB_USERNAME}|g" /var/www/html/.env || echo "DB_USERNAME=${DB_USERNAME}" >> /var/www/html/.env)
+    [ -n "$DB_PASSWORD" ] && (grep -q "^DB_PASSWORD=" /var/www/html/.env && sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=${DB_PASSWORD}|g" /var/www/html/.env || echo "DB_PASSWORD=${DB_PASSWORD}" >> /var/www/html/.env)
+    grep -q "^MYSQL_ATTR_SSL_CA=" /var/www/html/.env && sed -i "s|^MYSQL_ATTR_SSL_CA=.*|MYSQL_ATTR_SSL_CA=/etc/ssl/certs/isrgrootx1.pem|g" /var/www/html/.env || echo "MYSQL_ATTR_SSL_CA=/etc/ssl/certs/isrgrootx1.pem" >> /var/www/html/.env
+fi
+
+# 5. Storage & database permissions
 mkdir -p /var/www/html/storage/framework/{sessions,views,cache,data} /var/www/html/storage/logs /var/www/html/database
 touch /var/www/html/database/database.sqlite
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/database
 chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/database
 
-# 5. Storage symlink
+# 6. Storage symlink
 php artisan storage:link --force || true
 
-# 6. Database migrations & seeding
+# 7. Database migrations & seeding
 echo "Running database migrations..."
 php artisan migrate --force || echo "Notice: Database migration failed or database unreachable, continuing..."
 
 echo "Seeding initial admin and catalog data..."
 php artisan db:seed --force || echo "Notice: Seeding skipped or already populated."
 
-# 7. Production caching
+# 8. Production caching
 echo "Optimizing application cache..."
 php artisan config:cache || true
 php artisan route:cache || true
 php artisan view:cache || true
 
-# 8. Start Apache in foreground
+# 9. Start Apache in foreground
 exec apache2-foreground

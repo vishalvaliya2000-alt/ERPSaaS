@@ -15,6 +15,7 @@ FROM php:8.4-apache
 
 # Install system dependencies & PHP extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     git \
     curl \
     sqlite3 \
@@ -37,8 +38,10 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Enable Apache Rewrite Module
 RUN a2enmod rewrite
 
-# Copy Apache VirtualHost configuration
+# Copy Apache VirtualHost configuration & TiDB Root CA Certificate
 COPY docker/000-default.conf /etc/apache2/sites-available/000-default.conf
+COPY docker/isrgrootx1.pem /etc/ssl/certs/isrgrootx1.pem
+RUN update-ca-certificates || true
 
 WORKDIR /var/www/html
 
