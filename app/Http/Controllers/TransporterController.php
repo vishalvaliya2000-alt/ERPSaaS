@@ -1,0 +1,69 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\Transporter;
+
+class TransporterController extends Controller
+{
+    public function index()
+    {
+        $transporters = Transporter::orderBy('transporter_name')->get();
+        return view('transporters.index', compact('transporters'));
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'transporter_name' => 'required|string|max:150',
+            'transporter_id_gst' => 'nullable|string|max:50',
+            'contact_person' => 'nullable|string|max:100',
+            'phone' => 'nullable|string|max:30',
+            'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:100',
+            'branch_address' => 'nullable|string',
+        ]);
+
+        $transporter = Transporter::create([
+            'transporter_name' => $validated['transporter_name'],
+            'transporter_id_gst' => $validated['transporter_id_gst'] ?? null,
+            'contact_person' => $validated['contact_person'] ?? null,
+            'phone' => $validated['phone'] ?? null,
+            'city' => $validated['city'] ?? null,
+            'state' => $validated['state'] ?? 'Gujarat',
+            'branch_address' => $validated['branch_address'] ?? null,
+            'is_active' => true,
+        ]);
+
+        return back()->with('success', "✓ Transporter '{$transporter->transporter_name}' added successfully!");
+    }
+
+    public function update(Request $request, $id)
+    {
+        $transporter = Transporter::findOrFail($id);
+
+        $validated = $request->validate([
+            'transporter_name' => 'required|string|max:150',
+            'transporter_id_gst' => 'nullable|string|max:50',
+            'contact_person' => 'nullable|string|max:100',
+            'phone' => 'nullable|string|max:30',
+            'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:100',
+            'branch_address' => 'nullable|string',
+        ]);
+
+        $transporter->update($validated);
+
+        return back()->with('success', "✓ Transporter '{$transporter->transporter_name}' updated successfully!");
+    }
+
+    public function destroy($id)
+    {
+        $transporter = Transporter::findOrFail($id);
+        $name = $transporter->transporter_name;
+        $transporter->delete();
+
+        return back()->with('success', "✓ Transporter '{$name}' deleted successfully.");
+    }
+}

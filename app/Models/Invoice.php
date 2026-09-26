@@ -1,0 +1,114 @@
+<?php
+
+namespace App\Models;
+
+use App\Models\Traits\BelongsToTenant;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+class Invoice extends Model
+{
+    use BelongsToTenant;
+
+    protected $fillable = [
+        'tenant_id',
+        'invoice_number',
+        'customer_id',
+        'sales_order_id',
+        'commercial_shipment_id',
+        'linked_po_numbers',
+        'invoice_date',
+        'due_date',
+        'material_subtotal',
+        'freight_amount',
+        'subtotal',
+        'gst_amount',
+        'total_amount',
+        'amount_received',
+        'balance_due',
+        'status',
+        'notes',
+    ];
+
+    protected $casts = [
+        'invoice_date' => 'datetime',
+        'due_date' => 'datetime',
+        'material_subtotal' => 'decimal:2',
+        'freight_amount' => 'decimal:2',
+        'subtotal' => 'decimal:2',
+        'gst_amount' => 'decimal:2',
+        'total_amount' => 'decimal:2',
+        'amount_received' => 'decimal:2',
+        'balance_due' => 'decimal:2',
+    ];
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'customer_id');
+    }
+
+    public function salesOrder(): BelongsTo
+    {
+        return $this->belongsTo(SalesOrder::class, 'sales_order_id');
+    }
+
+    public function commercialShipment(): BelongsTo
+    {
+        return $this->belongsTo(CommercialShipment::class, 'commercial_shipment_id');
+    }
+
+    public function getEffectiveShipmentAttribute(): ?CommercialShipment
+    {
+        if ($this->commercial_shipment_id) {
+            return $this->commercialShipment;
+        }
+
+        if ($this->sales_order_id) {
+            return CommercialShipment::whereHas('items.salesOrderItem', function($q) {
+                $q->where('sales_order_id', $this->sales_order_id);
+            })->latest('shipment_date')->first();
+        }
+
+        return null;
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(InvoiceItem::class, 'invoice_id');
+    }
+
+    public function receipts(): HasMany
+    {
+        return $this->hasMany(PaymentReceipt::class, 'invoice_id');
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(BusinessDocument::class, 'invoice_id');
+    }
+
+    public function invoiceDocument(): HasOne
+    {
+        return $this->hasOne(BusinessDocument::class, 'invoice_id')
+            ->ofMany(['id' => 'max'], function ($q) {
+                $q->where('document_type', 'INVOICE');
+            });
+    }
+
+    public function getDisplayPoNumbersAttribute(): string
+    {
+        if (!empty($this->linked_po_numbers)) {
+            return $this->linked_po_numbers;
+        }
+        if ($this->salesOrder) {
+            return $this->salesOrder->order_number;
+        }
+        if ($this->commercialShipment) {
+            return $this->commercialShipment->po_numbers;
+        }
+        return 'Direct Invoice';
+    }
+}
