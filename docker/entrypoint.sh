@@ -9,9 +9,15 @@ sed -i "s/Listen 80/Listen ${PORT}/g" /etc/apache2/ports.conf
 sed -i "s/:80/:${PORT}/g" /etc/apache2/sites-available/000-default.conf
 
 # Ensure writable storage and cache permissions
-mkdir -p /var/www/html/storage/framework/{sessions,views,cache} /var/www/html/storage/logs
-chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+mkdir -p /var/www/html/storage/framework/{sessions,views,cache} /var/www/html/storage/logs /var/www/html/database
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/database
 chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Auto-generate APP_KEY if not specified in environment
+if [ -z "$APP_KEY" ]; then
+    echo "Notice: APP_KEY not provided, generating container key..."
+    php artisan key:generate --force || true
+fi
 
 # Create storage symlink
 php artisan storage:link --force || true
