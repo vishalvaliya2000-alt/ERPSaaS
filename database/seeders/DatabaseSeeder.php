@@ -11,14 +11,34 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // 0. Default Tenant
+        $tenant = \App\Models\Tenant::firstOrCreate(
+            ['id' => 1],
+            [
+                'name' => 'Real Dehydrates ERP',
+                'slug' => 'real-dehydrates',
+                'currency_code' => 'INR',
+                'currency_symbol' => '₹',
+                'plan' => 'ENTERPRISE',
+                'is_active' => true,
+            ]
+        );
+
         // 1. Admin User
-        User::firstOrCreate(
+        $admin = User::firstOrCreate(
             ['email' => 'admin@example.com'],
             [
                 'name' => 'System Administrator',
                 'password' => bcrypt('password123'),
+                'tenant_id' => $tenant->id,
+                'is_active' => true,
+                'role' => 'ADMIN',
             ]
         );
+
+        if (method_exists($tenant, 'users')) {
+            $tenant->users()->syncWithoutDetaching([$admin->id => ['role' => 'ADMIN', 'is_default' => true]]);
+        }
 
         // 2. Product Categories
         $garlic = ProductCategory::firstOrCreate(

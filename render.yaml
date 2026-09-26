@@ -11,25 +11,15 @@ services:
         value: production
       - key: APP_DEBUG
         value: false
-      - key: RUN_MIGRATIONS
-        value: "true"
       - key: LOG_CHANNEL
         value: stderr
-      - key: APP_KEY
-        generateValue: true
       - key: SESSION_DRIVER
         value: file
       - key: CACHE_STORE
         value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: APP_KEY
+        generateValue: true
       - key: DB_CONNECTION
-        value: mysql
-      - key: DB_HOST
-        sync: false
-      - key: DB_PORT
-        value: "3306"
-      - key: DB_DATABASE
-        sync: false
-      - key: DB_USERNAME
-        sync: false
-      - key: DB_PASSWORD
-        sync: false
+        value: sqlite

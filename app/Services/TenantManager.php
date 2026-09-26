@@ -15,28 +15,37 @@ class TenantManager
             return static::$currentTenant;
         }
 
-        $user = auth()->user();
-        if ($user && $user->tenant_id) {
-            static::$currentTenant = Tenant::find($user->tenant_id);
-            if (static::$currentTenant) {
-                return static::$currentTenant;
+        try {
+            $user = auth()->user();
+            if ($user && $user->tenant_id) {
+                static::$currentTenant = Tenant::find($user->tenant_id);
+                if (static::$currentTenant) {
+                    return static::$currentTenant;
+                }
             }
+
+            // Fallback to Tenant 1
+            static::$currentTenant = Tenant::first();
+        } catch (\Throwable $e) {
+            static::$currentTenant = null;
         }
 
-        // Fallback to Tenant 1
-        static::$currentTenant = Tenant::first();
         return static::$currentTenant;
     }
 
     public static function getTenantId(): ?int
     {
-        $user = auth()->user();
-        if ($user && $user->tenant_id) {
-            return (int) $user->tenant_id;
-        }
+        try {
+            $user = auth()->user();
+            if ($user && $user->tenant_id) {
+                return (int) $user->tenant_id;
+            }
 
-        $tenant = static::getTenant();
-        return $tenant ? (int) $tenant->id : 1;
+            $tenant = static::getTenant();
+            return $tenant ? (int) $tenant->id : 1;
+        } catch (\Throwable $e) {
+            return 1;
+        }
     }
 
     public static function setTenant(?Tenant $tenant): void
