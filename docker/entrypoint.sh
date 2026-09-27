@@ -48,7 +48,7 @@ fi
 
 # 4. Database configuration (Injected via Render Dashboard environment variables)
 export DB_CONNECTION=${DB_CONNECTION:-mysql}
-export DB_PORT=${DB_PORT:-3306}
+export DB_PORT=${DB_PORT:-4000}
 export MYSQL_ATTR_SSL_CA=${MYSQL_ATTR_SSL_CA:-/etc/ssl/certs/isrgrootx1.pem}
 
 echo "Configuring database connection from environment..."
@@ -71,10 +71,14 @@ php artisan storage:link --force || true
 
 # 7. Database migrations & seeding
 echo "Running database migrations..."
-php artisan migrate --force || echo "Notice: Database migration failed or database unreachable, continuing..."
+php artisan migrate --force
 
-echo "Seeding initial admin and catalog data..."
-php artisan db:seed --force || echo "Notice: Seeding skipped or already populated."
+if [ "${RUN_DB_SEED:-false}" = "true" ]; then
+    echo "Running database seeders (RUN_DB_SEED=true)..."
+    php artisan db:seed --force
+else
+    echo "Database seeding skipped (set RUN_DB_SEED=true to seed on startup)."
+fi
 
 # 8. Production caching
 echo "Optimizing application cache..."

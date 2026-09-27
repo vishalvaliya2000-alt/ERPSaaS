@@ -10,7 +10,7 @@ services:
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
-        value: false
+        value: "false"
       - key: LOG_CHANNEL
         value: stderr
       - key: SESSION_DRIVER
@@ -26,7 +26,7 @@ services:
       - key: DB_HOST
         sync: false
       - key: DB_PORT
-        sync: false
+        value: "4000"
       - key: DB_DATABASE
         sync: false
       - key: DB_USERNAME
