@@ -28,7 +28,7 @@ services:
       - key: DB_PORT
         value: "4000"
       - key: DB_DATABASE
-        sync: false
+        value: test
       - key: DB_USERNAME
         sync: false
       - key: DB_PASSWORD

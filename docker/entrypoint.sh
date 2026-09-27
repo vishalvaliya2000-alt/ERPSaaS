@@ -51,6 +51,12 @@ export DB_CONNECTION=${DB_CONNECTION:-mysql}
 export DB_PORT=${DB_PORT:-4000}
 export MYSQL_ATTR_SSL_CA=${MYSQL_ATTR_SSL_CA:-/etc/ssl/certs/isrgrootx1.pem}
 
+# Guard against reserved read-only system databases in TiDB Cloud / MySQL (e.g. 'sys')
+if [ -z "$DB_DATABASE" ] || [ "$DB_DATABASE" = "sys" ] || [ "$DB_DATABASE" = "mysql" ] || [ "$DB_DATABASE" = "information_schema" ] || [ "$DB_DATABASE" = "performance_schema" ]; then
+    echo "Notice: DB_DATABASE was '${DB_DATABASE:-empty}'. Using standard application database 'test'."
+    export DB_DATABASE="test"
+fi
+
 echo "Configuring database connection from environment..."
 grep -q "^DB_CONNECTION=" /var/www/html/.env && sed -i "s|^DB_CONNECTION=.*|DB_CONNECTION=${DB_CONNECTION}|g" /var/www/html/.env || echo "DB_CONNECTION=${DB_CONNECTION}" >> /var/www/html/.env
 [ -n "$DB_HOST" ] && { grep -q "^DB_HOST=" /var/www/html/.env && sed -i "s|^DB_HOST=.*|DB_HOST=${DB_HOST}|g" /var/www/html/.env || echo "DB_HOST=${DB_HOST}" >> /var/www/html/.env; }
