@@ -22,6 +22,7 @@ use App\Services\TenantManager;
 use App\Services\DashboardAnalyticsService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardController extends Controller
 {
@@ -31,21 +32,41 @@ class DashboardController extends Controller
         $user = auth()->user();
         $userName = $user?->first_name ?: ($user?->name ?: 'Vishal');
 
-        // 1. FINANCIAL EXECUTIVE PULSE
-        $totalSales = (float) Invoice::where('tenant_id', $tenantId)->sum('total_amount');
+        // 1. FINANCIAL EXECUTIVE PULSE (Consolidated into 1 aggregate query)
+        $invoiceStats = DB::table('invoices')
+            ->where('tenant_id', $tenantId)
+            ->selectRaw("
+                COALESCE(SUM(total_amount), 0) as total_sales,
+                COALESCE(SUM(balance_due), 0) as outstanding_receivables,
+                COUNT(CASE WHEN status = 'PAID' THEN 1 END) as paid_count,
+                COUNT(CASE WHEN status IN ('PENDING', 'ISSUED', 'PART_PAID', 'OVERDUE') AND balance_due > 0 THEN 1 END) as pending_count
+            ")
+            ->first();
+
+        $totalSales = (float) ($invoiceStats->total_sales ?? 0);
+        $outstandingReceivables = (float) ($invoiceStats->outstanding_receivables ?? 0);
+        $paidInvoicesCount = (int) ($invoiceStats->paid_count ?? 0);
+        $pendingInvoicesCount = (int) ($invoiceStats->pending_count ?? 0);
+
         $totalCollected = (float) PaymentReceipt::where('tenant_id', $tenantId)->where('payment_mode', '!=', 'ADVANCE_OFFSET')->sum('amount_received');
-        $outstandingReceivables = (float) Invoice::where('tenant_id', $tenantId)->sum('balance_due');
         $totalExpenses = (float) \App\Models\PurchaseOrder::where('tenant_id', $tenantId)->sum('total_amount');
         $collectionRate = $totalSales > 0 ? round(($totalCollected / $totalSales) * 100, 1) : 0;
-        $paidInvoicesCount = Invoice::where('tenant_id', $tenantId)->where('status', 'PAID')->count();
-        $pendingInvoicesCount = Invoice::where('tenant_id', $tenantId)->whereIn('status', ['PENDING', 'ISSUED', 'PART_PAID', 'OVERDUE'])->where('balance_due', '>', 0)->count();
 
-        // 2. FACTORY & FULFILLMENT VELOCITY
-        $totalOrderedQty = (float) SalesOrderItem::where('tenant_id', $tenantId)->sum('order_qty');
+        // 2. FACTORY & FULFILLMENT VELOCITY (Consolidated into 1 aggregate query)
+        $soStats = DB::table('sales_order_items')
+            ->where('tenant_id', $tenantId)
+            ->selectRaw("
+                COALESCE(SUM(order_qty), 0) as total_ordered,
+                COALESCE(SUM(CASE WHEN status IN ('PENDING', 'PARTIAL') THEN balance_qty ELSE 0 END), 0) as pending_qty,
+                COUNT(CASE WHEN status IN ('PENDING', 'PARTIAL') THEN 1 END) as open_lines
+            ")
+            ->first();
+
+        $totalOrderedQty = (float) ($soStats->total_ordered ?? 0);
+        $pendingShipmentQty = (float) ($soStats->pending_qty ?? 0);
+        $openOrderLines = (int) ($soStats->open_lines ?? 0);
         $totalDispatchedQty = (float) CommercialShipmentItem::where('tenant_id', $tenantId)->sum('quantity');
-        $pendingShipmentQty = (float) SalesOrderItem::where('tenant_id', $tenantId)->whereIn('status', ['PENDING', 'PARTIAL'])->sum('balance_qty');
         $fulfillmentRate = $totalOrderedQty > 0 ? round(($totalDispatchedQty / $totalOrderedQty) * 100, 1) : 0;
-        $openOrderLines = SalesOrderItem::where('tenant_id', $tenantId)->whereIn('status', ['PENDING', 'PARTIAL'])->count();
 
         // 3. PRODUCT-WISE DISPATCH PROGRESS (Live Factory Radar - Strict Tenant Isolated)
         $productDispatches = SalesOrderItem::with('product')
@@ -454,9 +475,11 @@ class DashboardController extends Controller
             ]);
         }
 
-        // 12. COMPREHENSIVE EXECUTIVE ANALYTICS (SaaS ERP Intelligence)
+        // 12. COMPREHENSIVE EXECUTIVE ANALYTICS (Cached for 60s to prevent round-trip stalls)
         $analyticsService = app(DashboardAnalyticsService::class);
-        $analytics = $analyticsService->getAllAnalytics($tenantId);
+        $analytics = Cache::remember("dashboard_analytics_{$tenantId}", 60, function () use ($analyticsService, $tenantId) {
+            return $analyticsService->getAllAnalytics($tenantId);
+        });
 
         return view('dashboard', compact(
             'totalSales',
