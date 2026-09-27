@@ -7,6 +7,8 @@ use App\Models\Customer;
 use App\Models\Contact;
 use App\Models\ActivityLog;
 use App\Models\Product;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CustomerController extends Controller
 {
@@ -113,33 +115,45 @@ class CustomerController extends Controller
             $code = Customer::generateNextCode($tenantId);
         }
 
-        $customer = Customer::create([
-            'tenant_id' => $tenantId,
-            'customer_code' => $code,
-            'company_name' => $legalName,
-            'trade_name' => $tradeName,
-            'gst_number' => $validated['gst_number'] ?? null,
-            'primary_contact_person' => $validated['primary_contact_person'] ?? null,
-            'primary_phone' => $validated['primary_phone'] ?? null,
-            'primary_email' => $validated['primary_email'] ?? null,
-            'city' => $validated['city'] ?? null,
-            'state' => $validated['state'] ?? 'Gujarat',
-            'payment_terms_days' => $validated['payment_terms_days'] ?? 30,
-            'notes' => $validated['notes'] ?? null,
-            'stage' => 'ACTIVE',
-        ]);
-
-        if (!empty($validated['primary_contact_person'])) {
-            Contact::create([
-                'customer_id' => $customer->id,
-                'name' => $validated['primary_contact_person'],
-                'phone' => $validated['primary_phone'] ?? null,
-                'email' => $validated['primary_email'] ?? null,
-                'is_primary' => true,
+        DB::beginTransaction();
+        try {
+            $customer = Customer::create([
+                'tenant_id' => $tenantId,
+                'customer_code' => $code,
+                'company_name' => $legalName,
+                'trade_name' => $tradeName,
+                'gst_number' => $validated['gst_number'] ?? null,
+                'primary_contact_person' => $validated['primary_contact_person'] ?? null,
+                'primary_phone' => $validated['primary_phone'] ?? null,
+                'primary_email' => $validated['primary_email'] ?? null,
+                'city' => $validated['city'] ?? null,
+                'state' => $validated['state'] ?? 'Gujarat',
+                'payment_terms_days' => $validated['payment_terms_days'] ?? 30,
+                'notes' => $validated['notes'] ?? null,
+                'stage' => 'ACTIVE',
             ]);
-        }
 
-        return redirect()->route('customers.show', $customer->id)->with('success', "✓ Customer '{$customer->company_name}' created successfully!");
+            if (!empty($validated['primary_contact_person'])) {
+                Contact::create([
+                    'customer_id' => $customer->id,
+                    'name' => $validated['primary_contact_person'],
+                    'phone' => $validated['primary_phone'] ?? null,
+                    'email' => $validated['primary_email'] ?? null,
+                    'is_primary' => true,
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('customers.show', $customer->id)->with('success', "✓ Customer '{$customer->company_name}' created successfully!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Failed to create customer: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->except(['password']),
+            ]);
+            return back()->withInput()->with('error', 'Failed to create customer: ' . $e->getMessage());
+        }
     }
 
     public function update(Request $request, $id)
@@ -165,9 +179,20 @@ class CustomerController extends Controller
             unset($validated['legal_name']);
         }
 
-        $customer->update($validated);
+        DB::beginTransaction();
+        try {
+            $customer->update($validated);
+            DB::commit();
 
-        return back()->with('success', "✓ Customer '{$customer->company_name}' updated successfully!");
+            return back()->with('success', "✓ Customer '{$customer->company_name}' updated successfully!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to update customer #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to update customer: ' . $e->getMessage());
+        }
     }
 
     public function destroy($id)
@@ -180,11 +205,21 @@ class CustomerController extends Controller
             return back()->with('error', "Cannot delete customer '{$name}' because they have associated sales orders or invoices.");
         }
 
-        $customer->contacts()->delete();
-        $customer->followups()->delete();
-        $customer->activities()->delete();
-        $customer->delete();
+        DB::beginTransaction();
+        try {
+            $customer->contacts()->delete();
+            $customer->followups()->delete();
+            $customer->activities()->delete();
+            $customer->delete();
+            DB::commit();
 
-        return redirect()->route('customers.index')->with('success', "✓ Customer '{$name}' deleted successfully.");
+            return redirect()->route('customers.index')->with('success', "✓ Customer '{$name}' deleted successfully.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to delete customer #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+            return back()->with('error', 'Failed to delete customer: ' . $e->getMessage());
+        }
     }
 }

@@ -13,6 +13,7 @@ use App\Models\ActivityLog;
 use App\Services\DocumentTransactionService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ShipmentController extends Controller
@@ -204,7 +205,11 @@ class ShipmentController extends Controller
             return redirect()->route('shipments.index')->with('success', "✓ Consignment {$shipment->lr_number} created successfully (" . ($shipment->freight_payment_type === 'PAID' ? "Freight Paid: " . formatINR($freightAmount) : "Freight: TO PAY") . ") with " . count($validated['items']) . " item(s) across " . count($affectedOrderIds) . " PO(s)!");
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->with('error', 'Shipment creation failed: ' . $e->getMessage());
+            Log::error('Shipment creation failed: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Shipment creation failed: ' . $e->getMessage());
         }
     }
 
@@ -227,6 +232,7 @@ class ShipmentController extends Controller
             'lr_number.unique' => "🚫 Disallowed: LR / Bilty Number ':input' is already registered for another commercial shipment.",
         ]);
 
+        DB::beginTransaction();
         try {
             $freightAmount = ($validated['freight_payment_type'] === 'PAID') ? (float)($validated['freight_amount'] ?? 0) : 0;
 
@@ -252,9 +258,16 @@ class ShipmentController extends Controller
                 );
             }
 
+            DB::commit();
+
             return redirect()->route('shipments.index')->with('success', "✓ Shipment {$shipment->lr_number} updated successfully!");
         } catch (\Throwable $e) {
-            return back()->with('error', 'Failed to update shipment: ' . $e->getMessage());
+            DB::rollBack();
+            Log::error("Failed to update shipment #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to update shipment: ' . $e->getMessage());
         }
     }
 
@@ -315,6 +328,9 @@ class ShipmentController extends Controller
             return redirect()->route('shipments.index')->with('success', "✓ Shipment {$lrNo} has been deleted and all PO balances have been restored!");
         } catch (\Throwable $e) {
             DB::rollBack();
+            Log::error("Failed to delete shipment #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+            ]);
             return back()->with('error', 'Failed to delete shipment: ' . $e->getMessage());
         }
     }
@@ -341,38 +357,56 @@ class ShipmentController extends Controller
             }
         }
 
-        $shipment->update([
-            'status' => $status,
-            'actual_delivery_date' => $actualDeliveryDate,
-        ]);
-
-        if ($status === 'DELIVERED') {
-            // Close delivery confirmation tasks
-            FollowupTask::where('customer_id', $shipment->salesOrder?->customer_id)
-                ->where('status', 'PENDING')
-                ->where(function ($q) use ($shipment) {
-                    $q->where('type', 'DELIVERY_CONFIRMATION')
-                      ->where(function ($sq) use ($shipment) {
-                          $sq->where('pending_item', 'like', "%{$shipment->lr_number}%")
-                             ->orWhere('reason', 'like', "%{$shipment->lr_number}%");
-                      });
-                })
-                ->update([
-                    'status' => 'COMPLETED',
-                    'completed_at' => Carbon::now(),
-                    'outcome_notes' => "Consignment LR {$shipment->lr_number} marked delivered.",
-                ]);
-        }
-
-        if ($request->wantsJson() || $request->ajax()) {
-            return response()->json([
-                'success' => true,
-                'message' => "✓ Shipment {$shipment->lr_number} marked as {$status}!",
+        DB::beginTransaction();
+        try {
+            $shipment->update([
                 'status' => $status,
+                'actual_delivery_date' => $actualDeliveryDate,
             ]);
-        }
 
-        return back()->with('success', "✓ Shipment {$shipment->lr_number} marked as {$status}!");
+            if ($status === 'DELIVERED') {
+                // Close delivery confirmation tasks
+                FollowupTask::where('customer_id', $shipment->salesOrder?->customer_id)
+                    ->where('status', 'PENDING')
+                    ->where(function ($q) use ($shipment) {
+                        $q->where('type', 'DELIVERY_CONFIRMATION')
+                          ->where(function ($sq) use ($shipment) {
+                              $sq->where('pending_item', 'like', "%{$shipment->lr_number}%")
+                                 ->orWhere('reason', 'like', "%{$shipment->lr_number}%");
+                          });
+                    })
+                    ->update([
+                        'status' => 'COMPLETED',
+                        'completed_at' => Carbon::now(),
+                        'outcome_notes' => "Consignment LR {$shipment->lr_number} marked delivered.",
+                    ]);
+            }
+
+            DB::commit();
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "✓ Shipment {$shipment->lr_number} marked as {$status}!",
+                    'status' => $status,
+                ]);
+            }
+
+            return back()->with('success', "✓ Shipment {$shipment->lr_number} marked as {$status}!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to update status on shipment #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to update status: ' . $e->getMessage(),
+                ], 500);
+            }
+            return back()->with('error', 'Failed to update shipment status: ' . $e->getMessage());
+        }
     }
 
     /**

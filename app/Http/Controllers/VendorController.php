@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Vendor;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class VendorController extends Controller
 {
@@ -30,21 +32,33 @@ class VendorController extends Controller
 
         $code = $validated['vendor_code'] ?: ('VEN-' . strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $validated['company_name']), 0, 3)) . '-' . rand(100, 999));
 
-        $vendor = Vendor::create([
-            'vendor_code' => $code,
-            'company_name' => $validated['company_name'],
-            'contact_person' => $validated['contact_person'] ?? null,
-            'phone' => $validated['phone'] ?? null,
-            'email' => $validated['email'] ?? null,
-            'gstin' => $validated['gstin'] ?? null,
-            'city' => $validated['city'] ?? null,
-            'state' => $validated['state'] ?? 'Gujarat',
-            'payment_terms_days' => $validated['payment_terms_days'] ?? 15,
-            'notes' => $validated['notes'] ?? null,
-            'is_active' => true,
-        ]);
+        DB::beginTransaction();
+        try {
+            $vendor = Vendor::create([
+                'vendor_code' => $code,
+                'company_name' => $validated['company_name'],
+                'contact_person' => $validated['contact_person'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'email' => $validated['email'] ?? null,
+                'gstin' => $validated['gstin'] ?? null,
+                'city' => $validated['city'] ?? null,
+                'state' => $validated['state'] ?? 'Gujarat',
+                'payment_terms_days' => $validated['payment_terms_days'] ?? 15,
+                'notes' => $validated['notes'] ?? null,
+                'is_active' => true,
+            ]);
 
-        return back()->with('success', "✓ Vendor '{$vendor->company_name}' added successfully!");
+            DB::commit();
+
+            return back()->with('success', "✓ Vendor '{$vendor->company_name}' added successfully!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Failed to create vendor: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to add vendor: ' . $e->getMessage());
+        }
     }
 
     public function update(Request $request, $id)
@@ -62,17 +76,39 @@ class VendorController extends Controller
             'payment_terms_days' => 'nullable|integer',
         ]);
 
-        $vendor->update($validated);
+        DB::beginTransaction();
+        try {
+            $vendor->update($validated);
+            DB::commit();
 
-        return back()->with('success', "✓ Vendor '{$vendor->company_name}' updated successfully!");
+            return back()->with('success', "✓ Vendor '{$vendor->company_name}' updated successfully!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to update vendor #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to update vendor: ' . $e->getMessage());
+        }
     }
 
     public function destroy($id)
     {
         $vendor = Vendor::findOrFail($id);
         $name = $vendor->company_name;
-        $vendor->delete();
 
-        return back()->with('success', "✓ Vendor '{$name}' deleted successfully.");
+        DB::beginTransaction();
+        try {
+            $vendor->delete();
+            DB::commit();
+
+            return back()->with('success', "✓ Vendor '{$name}' deleted successfully.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to delete vendor #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+            return back()->with('error', 'Failed to delete vendor: ' . $e->getMessage());
+        }
     }
 }

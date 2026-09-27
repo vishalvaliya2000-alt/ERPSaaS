@@ -17,6 +17,7 @@ use App\Models\Sample;
 use App\Models\Lead;
 use App\Models\PaymentReceipt;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class AssistantController extends Controller
 {
@@ -38,9 +39,10 @@ class AssistantController extends Controller
             ]);
         }
 
-        // ==========================================
-        // 1. ENTITY & TEMPORAL EXTRACTION
-        // ==========================================
+        try {
+            // ==========================================
+            // 1. ENTITY & TEMPORAL EXTRACTION
+            // ==========================================
 
         $isLatestOrLast = str_contains($q, 'last') || str_contains($q, 'latest') || str_contains($q, 'recent') || str_contains($q, 'most recent') || str_contains($q, 'previous');
 
@@ -504,5 +506,18 @@ class AssistantController extends Controller
             'action_url' => route('dashboard'),
             'action_label' => 'Open Executive Cockpit',
         ]);
+        } catch (\Throwable $e) {
+            Log::error('AI Copilot query failed: ' . $e->getMessage(), [
+                'exception' => $e,
+                'query' => $rawQuery,
+            ]);
+            return response()->json([
+                'title' => 'Search Query Notice',
+                'answer' => 'An error occurred while analyzing records for your query. Please try searching with a customer name, PO number, or commodity grade.',
+                'details' => config('app.debug') ? ['Debug Note' => $e->getMessage()] : [],
+                'action_url' => route('dashboard'),
+                'action_label' => 'Go to Dashboard',
+            ]);
+        }
     }
 }

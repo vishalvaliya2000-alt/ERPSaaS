@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
@@ -305,37 +307,49 @@ class ProductController extends Controller
         $pack = $validated['default_packaging'] ?? ($validated['packaging'] ?? '20 KGs Two Poly Liner Bags with Laminated Paper Bag');
         $tax = ! empty($validated['tax_rate_percent']) ? (float) $validated['tax_rate_percent'] : 5.00;
 
-        // Auto-assign Category if not explicitly provided
-        $categoryId = $validated['category_id'] ?? null;
-        if (empty($categoryId)) {
-            $catSlug = $this->deriveCategorySlug($validated['product_name']);
-            $catName = ucfirst($catSlug).' Products';
-            $cat = ProductCategory::where('slug', $catSlug)
-                ->orWhere('name', $catName)
-                ->first();
-            if (! $cat) {
-                $cat = ProductCategory::create([
-                    'slug' => $catSlug,
-                    'name' => $catName,
-                ]);
+        DB::beginTransaction();
+        try {
+            // Auto-assign Category if not explicitly provided
+            $categoryId = $validated['category_id'] ?? null;
+            if (empty($categoryId)) {
+                $catSlug = $this->deriveCategorySlug($validated['product_name']);
+                $catName = ucfirst($catSlug).' Products';
+                $cat = ProductCategory::where('slug', $catSlug)
+                    ->orWhere('name', $catName)
+                    ->first();
+                if (! $cat) {
+                    $cat = ProductCategory::create([
+                        'slug' => $catSlug,
+                        'name' => $catName,
+                    ]);
+                }
+                $categoryId = $cat->id;
             }
-            $categoryId = $cat->id;
+
+            $hsn = $validated['hsn_code'] ?: $this->deriveHsnCode($validated['product_name']);
+
+            $product = Product::create([
+                'product_code' => $code,
+                'product_name' => $validated['product_name'],
+                'category_id' => $categoryId,
+                'hsn_code' => $hsn,
+                'packaging' => $pack,
+                'standard_rate' => $rate,
+                'tax_rate' => $tax,
+                'is_active' => $request->has('is_active') ? $request->boolean('is_active') : true,
+            ]);
+
+            DB::commit();
+
+            return back()->with('success', "✓ Product '{$product->product_name}' saved successfully with SKU {$code}!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Failed to create product: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to create product: ' . $e->getMessage());
         }
-
-        $hsn = $validated['hsn_code'] ?: $this->deriveHsnCode($validated['product_name']);
-
-        $product = Product::create([
-            'product_code' => $code,
-            'product_name' => $validated['product_name'],
-            'category_id' => $categoryId,
-            'hsn_code' => $hsn,
-            'packaging' => $pack,
-            'standard_rate' => $rate,
-            'tax_rate' => $tax,
-            'is_active' => $request->has('is_active') ? $request->boolean('is_active') : true,
-        ]);
-
-        return back()->with('success', "✓ Product '{$product->product_name}' saved successfully with SKU {$code}!");
     }
 
     public function update(Request $request, $id)
@@ -359,31 +373,43 @@ class ProductController extends Controller
         $pack = $validated['default_packaging'] ?? ($validated['packaging'] ?? $product->packaging);
         $tax = ! empty($validated['tax_rate_percent']) ? (float) $validated['tax_rate_percent'] : ($product->tax_rate ?: 5.00);
 
-        // Update Category dynamically based on name
-        $catSlug = $this->deriveCategorySlug($validated['product_name']);
-        $catName = ucfirst($catSlug).' Products';
-        $cat = ProductCategory::where('slug', $catSlug)
-            ->orWhere('name', $catName)
-            ->first();
-        if (! $cat) {
-            $cat = ProductCategory::create([
-                'slug' => $catSlug,
-                'name' => $catName,
+        DB::beginTransaction();
+        try {
+            // Update Category dynamically based on name
+            $catSlug = $this->deriveCategorySlug($validated['product_name']);
+            $catName = ucfirst($catSlug).' Products';
+            $cat = ProductCategory::where('slug', $catSlug)
+                ->orWhere('name', $catName)
+                ->first();
+            if (! $cat) {
+                $cat = ProductCategory::create([
+                    'slug' => $catSlug,
+                    'name' => $catName,
+                ]);
+            }
+
+            $product->update([
+                'product_code' => $code,
+                'product_name' => $validated['product_name'],
+                'category_id' => $cat->id,
+                'hsn_code' => $validated['hsn_code'] ?: ($product->hsn_code ?: $this->deriveHsnCode($validated['product_name'])),
+                'packaging' => $pack,
+                'standard_rate' => $rate,
+                'tax_rate' => $tax,
+                'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $product->is_active,
             ]);
+
+            DB::commit();
+
+            return back()->with('success', "✓ Product '{$product->product_name}' updated successfully!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to update product #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to update product: ' . $e->getMessage());
         }
-
-        $product->update([
-            'product_code' => $code,
-            'product_name' => $validated['product_name'],
-            'category_id' => $cat->id,
-            'hsn_code' => $validated['hsn_code'] ?: ($product->hsn_code ?: $this->deriveHsnCode($validated['product_name'])),
-            'packaging' => $pack,
-            'standard_rate' => $rate,
-            'tax_rate' => $tax,
-            'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $product->is_active,
-        ]);
-
-        return back()->with('success', "✓ Product '{$product->product_name}' updated successfully!");
     }
 
     public function destroy($id)
@@ -395,9 +421,19 @@ class ProductController extends Controller
             return back()->with('error', "Cannot delete '{$name}' because it has historical sales order line items.");
         }
 
-        $product->delete();
+        DB::beginTransaction();
+        try {
+            $product->delete();
+            DB::commit();
 
-        return back()->with('success', "✓ Product '{$name}' deleted successfully.");
+            return back()->with('success', "✓ Product '{$name}' deleted successfully.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to delete product #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+            return back()->with('error', 'Failed to delete product: ' . $e->getMessage());
+        }
     }
 
     /**

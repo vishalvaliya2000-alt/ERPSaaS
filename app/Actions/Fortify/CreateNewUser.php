@@ -6,6 +6,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -49,58 +50,71 @@ class CreateNewUser implements CreatesNewUsers
             'gstin.unique' => 'This GSTIN is already registered to another account.',
         ])->validate();
 
-        return DB::transaction(function () use ($input) {
-            $rawPrefix = strtoupper(preg_replace('/[^A-Za-z]/', '', $input['company_name']));
-            $prefix = substr($rawPrefix, 0, 3) ?: 'ERP';
+        try {
+            return DB::transaction(function () use ($input) {
+                $rawPrefix = strtoupper(preg_replace('/[^A-Za-z]/', '', $input['company_name']));
+                $prefix = substr($rawPrefix, 0, 3) ?: 'ERP';
 
-            $tenant = Tenant::create([
-                'name' => trim($input['company_name']),
-                'slug' => Str::slug($input['company_name']).'-'.rand(100, 999),
-                'tagline' => 'GST Billing, Inventory & Operations',
-                'industry' => $input['industry'],
-                'currency_code' => 'INR',
-                'currency_symbol' => '₹',
-                'tax_id_label' => 'GSTIN',
-                'tax_id_number' => ! empty($input['gstin']) ? strtoupper(trim($input['gstin'])) : null,
-                'email' => strtolower(trim($input['email'])),
-                'phone' => trim($input['phone']),
-                'city' => ! empty($input['city']) ? trim($input['city']) : null,
-                'state' => ! empty($input['state']) ? trim($input['state']) : 'Gujarat',
-                'country' => 'India',
-                'invoice_prefix' => $prefix.'-INV',
-                'quotation_prefix' => $prefix.'-QUO',
-                'po_prefix' => $prefix.'-PO',
-                'shipment_prefix' => $prefix.'-SHP',
-                'plan' => 'GROWTH_ENTERPRISE',
-                'is_active' => true,
-            ]);
+                $tenant = Tenant::create([
+                    'name' => trim($input['company_name']),
+                    'slug' => Str::slug($input['company_name']).'-'.rand(100, 999),
+                    'tagline' => 'GST Billing, Inventory & Operations',
+                    'industry' => $input['industry'],
+                    'currency_code' => 'INR',
+                    'currency_symbol' => '₹',
+                    'tax_id_label' => 'GSTIN',
+                    'tax_id_number' => ! empty($input['gstin']) ? strtoupper(trim($input['gstin'])) : null,
+                    'email' => strtolower(trim($input['email'])),
+                    'phone' => trim($input['phone']),
+                    'city' => ! empty($input['city']) ? trim($input['city']) : null,
+                    'state' => ! empty($input['state']) ? trim($input['state']) : 'Gujarat',
+                    'country' => 'India',
+                    'invoice_prefix' => $prefix.'-INV',
+                    'quotation_prefix' => $prefix.'-QUO',
+                    'po_prefix' => $prefix.'-PO',
+                    'shipment_prefix' => $prefix.'-SHP',
+                    'plan' => 'GROWTH_ENTERPRISE',
+                    'is_active' => true,
+                ]);
 
-            $user = User::create([
-                'tenant_id' => $tenant->id,
-                'name' => trim($input['name']),
-                'email' => strtolower(trim($input['email'])),
-                'phone' => trim($input['phone']),
-                'password' => Hash::make($input['password']),
-                'role' => 'OWNER',
-                'designation' => 'Business Owner / Managing Director',
-                'is_active' => true,
-            ]);
+                $user = User::create([
+                    'tenant_id' => $tenant->id,
+                    'name' => trim($input['name']),
+                    'email' => strtolower(trim($input['email'])),
+                    'phone' => trim($input['phone']),
+                    'password' => Hash::make($input['password']),
+                    'role' => 'OWNER',
+                    'designation' => 'Business Owner / Managing Director',
+                    'is_active' => true,
+                ]);
 
-            $tenant->users()->attach($user->id, [
-                'role' => 'OWNER',
-                'is_default' => true,
-            ]);
+                $tenant->users()->attach($user->id, [
+                    'role' => 'OWNER',
+                    'is_default' => true,
+                ]);
 
-            try {
-                if (class_exists(\Spatie\Permission\Models\Role::class)) {
-                    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'OWNER', 'guard_name' => 'web']);
-                    $user->assignRole('OWNER');
+                try {
+                    if (class_exists(\Spatie\Permission\Models\Role::class)) {
+                        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'OWNER', 'guard_name' => 'web']);
+                        $user->assignRole('OWNER');
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning("Role assignment notice: " . $e->getMessage());
                 }
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning("Role assignment notice: " . $e->getMessage());
-            }
 
-            return $user;
-        });
+                return $user;
+            });
+        } catch (ValidationException $ve) {
+            throw $ve;
+        } catch (\Throwable $e) {
+            Log::error('User registration failed: ' . $e->getMessage(), [
+                'exception' => $e,
+                'email' => $input['email'] ?? null,
+                'company' => $input['company_name'] ?? null,
+            ]);
+            throw ValidationException::withMessages([
+                'email' => 'Unable to complete registration: ' . $e->getMessage(),
+            ]);
+        }
     }
 }

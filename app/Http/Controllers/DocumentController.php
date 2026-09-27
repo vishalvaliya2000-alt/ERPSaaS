@@ -15,6 +15,7 @@ use App\Services\TenantManager;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -194,6 +195,10 @@ class DocumentController extends Controller
 
         } catch (\Throwable $e) {
             DB::rollBack();
+            Log::error('Failed to save document: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->except(['file']),
+            ]);
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
@@ -329,28 +334,35 @@ class DocumentController extends Controller
 
         $storedPath = $file->storeAs("documents/{$tenantId}", $storageFilename, 'public');
 
-        DB::transaction(function () use ($doc, $file, $originalName, $storedPath, $nextVersion, $request) {
-            // Set all existing versions to inactive
-            $doc->versions()->update(['is_active' => false]);
+        try {
+            DB::transaction(function () use ($doc, $file, $originalName, $storedPath, $nextVersion, $request) {
+                // Set all existing versions to inactive
+                $doc->versions()->update(['is_active' => false]);
 
-            // Create new version
-            DocumentVersion::create([
-                'document_id' => $doc->id,
-                'version_number' => $nextVersion,
-                'file_path' => $storedPath,
-                'file_name' => $originalName,
-                'file_size' => $file->getSize(),
-                'mime_type' => $file->getMimeType(),
-                'uploaded_by_user_id' => auth()->id(),
-                'change_note' => $request->input('change_note') ?: "Version {$nextVersion} uploaded",
-                'is_active' => true,
+                // Create new version
+                DocumentVersion::create([
+                    'document_id' => $doc->id,
+                    'version_number' => $nextVersion,
+                    'file_path' => $storedPath,
+                    'file_name' => $originalName,
+                    'file_size' => $file->getSize(),
+                    'mime_type' => $file->getMimeType(),
+                    'uploaded_by_user_id' => auth()->id(),
+                    'change_note' => $request->input('change_note') ?: "Version {$nextVersion} uploaded",
+                    'is_active' => true,
+                ]);
+
+                // Update document's current version
+                $doc->update(['current_version' => $nextVersion]);
+            });
+
+            return back()->with('success', "✓ Version {$nextVersion} of {$doc->type_label} #{$doc->document_number} uploaded successfully!");
+        } catch (\Throwable $e) {
+            Log::error("Failed to upload new version for document #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
             ]);
-
-            // Update document's current version
-            $doc->update(['current_version' => $nextVersion]);
-        });
-
-        return back()->with('success', "✓ Version {$nextVersion} of {$doc->type_label} #{$doc->document_number} uploaded successfully!");
+            return back()->with('error', 'Failed to upload new version: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -362,17 +374,24 @@ class DocumentController extends Controller
         $doc = BusinessDocument::where('tenant_id', $tenantId)->findOrFail($id);
         $num = $doc->document_number;
 
-        DB::transaction(function () use ($doc) {
-            // Remove files from storage
-            foreach ($doc->versions as $v) {
-                if (Storage::disk('public')->exists($v->file_path)) {
-                    Storage::disk('public')->delete($v->file_path);
+        try {
+            DB::transaction(function () use ($doc) {
+                // Remove files from storage
+                foreach ($doc->versions as $v) {
+                    if (Storage::disk('public')->exists($v->file_path)) {
+                        Storage::disk('public')->delete($v->file_path);
+                    }
                 }
-            }
-            $doc->delete();
-        });
+                $doc->delete();
+            });
 
-        return back()->with('success', "✓ Document #{$num} removed successfully.");
+            return back()->with('success', "✓ Document #{$num} removed successfully.");
+        } catch (\Throwable $e) {
+            Log::error("Failed to delete document #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+            return back()->with('error', 'Failed to delete document: ' . $e->getMessage());
+        }
     }
 
     /**

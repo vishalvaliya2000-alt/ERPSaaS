@@ -35,9 +35,16 @@ class ExcelController extends Controller
 
     public function export()
     {
-        return Excel::download(
-            new MasterWorkbookExport(),
-            'ERP_Master_Export_' . date('Y-m-d') . '.xlsx'
-        );
+        try {
+            return Excel::download(
+                new MasterWorkbookExport(),
+                'ERP_Master_Export_' . date('Y-m-d') . '.xlsx'
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Master Excel export failed: ' . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+            return back()->with('error', 'Failed to generate Excel export: ' . $e->getMessage());
+        }
     }
 }

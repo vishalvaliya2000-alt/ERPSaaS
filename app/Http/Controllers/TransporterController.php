@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Transporter;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TransporterController extends Controller
 {
@@ -25,18 +27,30 @@ class TransporterController extends Controller
             'branch_address' => 'nullable|string',
         ]);
 
-        $transporter = Transporter::create([
-            'transporter_name' => $validated['transporter_name'],
-            'transporter_id_gst' => $validated['transporter_id_gst'] ?? null,
-            'contact_person' => $validated['contact_person'] ?? null,
-            'phone' => $validated['phone'] ?? null,
-            'city' => $validated['city'] ?? null,
-            'state' => $validated['state'] ?? 'Gujarat',
-            'branch_address' => $validated['branch_address'] ?? null,
-            'is_active' => true,
-        ]);
+        DB::beginTransaction();
+        try {
+            $transporter = Transporter::create([
+                'transporter_name' => $validated['transporter_name'],
+                'transporter_id_gst' => $validated['transporter_id_gst'] ?? null,
+                'contact_person' => $validated['contact_person'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'city' => $validated['city'] ?? null,
+                'state' => $validated['state'] ?? 'Gujarat',
+                'branch_address' => $validated['branch_address'] ?? null,
+                'is_active' => true,
+            ]);
 
-        return back()->with('success', "✓ Transporter '{$transporter->transporter_name}' added successfully!");
+            DB::commit();
+
+            return back()->with('success', "✓ Transporter '{$transporter->transporter_name}' added successfully!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Failed to create transporter: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to add transporter: ' . $e->getMessage());
+        }
     }
 
     public function update(Request $request, $id)
@@ -53,17 +67,39 @@ class TransporterController extends Controller
             'branch_address' => 'nullable|string',
         ]);
 
-        $transporter->update($validated);
+        DB::beginTransaction();
+        try {
+            $transporter->update($validated);
+            DB::commit();
 
-        return back()->with('success', "✓ Transporter '{$transporter->transporter_name}' updated successfully!");
+            return back()->with('success', "✓ Transporter '{$transporter->transporter_name}' updated successfully!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to update transporter #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to update transporter: ' . $e->getMessage());
+        }
     }
 
     public function destroy($id)
     {
         $transporter = Transporter::findOrFail($id);
         $name = $transporter->transporter_name;
-        $transporter->delete();
 
-        return back()->with('success', "✓ Transporter '{$name}' deleted successfully.");
+        DB::beginTransaction();
+        try {
+            $transporter->delete();
+            DB::commit();
+
+            return back()->with('success', "✓ Transporter '{$name}' deleted successfully.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to delete transporter #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+            return back()->with('error', 'Failed to delete transporter: ' . $e->getMessage());
+        }
     }
 }

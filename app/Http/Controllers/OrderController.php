@@ -12,6 +12,7 @@ use App\Models\ActivityLog;
 use App\Services\DocumentTransactionService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -170,7 +171,11 @@ class OrderController extends Controller
             return redirect()->route('orders.index')->with('success', "✓ Sales Order {$order->order_number} created successfully with " . count($validated['items']) . " item(s)!");
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to create sales order: ' . $e->getMessage());
+            Log::error('Failed to create sales order: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to create sales order: ' . $e->getMessage());
         }
     }
 
@@ -315,7 +320,11 @@ class OrderController extends Controller
             return redirect()->route('orders.index')->with('success', "✓ Purchase Order {$order->order_number} revised to Rev {$order->revision_number} successfully! (Previous version safely archived to history)");
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to update order: ' . $e->getMessage());
+            Log::error("Failed to update sales order #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to update order: ' . $e->getMessage());
         }
     }
 
@@ -404,6 +413,9 @@ class OrderController extends Controller
             return redirect()->route('orders.index')->with('success', "✓ Purchase Order {$orderNo} has been deleted.");
         } catch (\Throwable $e) {
             DB::rollBack();
+            Log::error("Failed to delete sales order #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+            ]);
             return back()->with('error', 'Failed to delete order: ' . $e->getMessage());
         }
     }
@@ -454,7 +466,11 @@ class OrderController extends Controller
             return back()->with('success', "✓ Advance payment of " . formatINR($amt) . " recorded against PO {$order->order_number} via {$receipt->payment_mode} (Ref: {$receipt->receipt_number})!");
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to record advance: ' . $e->getMessage());
+            Log::error("Failed to record advance on sales order #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to record advance: ' . $e->getMessage());
         }
     }
 }

@@ -16,6 +16,7 @@ use App\Models\Product;
 use App\Services\DocumentTransactionService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class InvoiceController extends Controller
 {
@@ -427,7 +428,11 @@ class InvoiceController extends Controller
             return redirect()->route('invoices.index')->with('success', $successMsg);
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->with('error', 'Invoice generation failed: ' . $e->getMessage());
+            Log::error('Invoice generation failed: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Invoice generation failed: ' . $e->getMessage());
         }
     }
 
@@ -498,7 +503,11 @@ class InvoiceController extends Controller
             return redirect()->route('invoices.index')->with('success', "✓ Tax Invoice {$invoice->invoice_number} updated successfully!");
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->with('error', 'Invoice update failed: ' . $e->getMessage());
+            Log::error("Invoice update failed for #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Invoice update failed: ' . $e->getMessage());
         }
     }
 
@@ -543,6 +552,9 @@ class InvoiceController extends Controller
             return redirect()->route('invoices.index')->with('success', "✓ Invoice {$invNo} has been deleted and customer ledger adjusted.");
         } catch (\Throwable $e) {
             DB::rollBack();
+            Log::error("Invoice deletion failed for #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+            ]);
             return back()->with('error', 'Invoice deletion failed: ' . $e->getMessage());
         }
     }
@@ -627,7 +639,11 @@ class InvoiceController extends Controller
             return redirect()->route('invoices.index')->with('success', "✓ Payment of " . formatINR($amt) . " recorded against {$inv->invoice_number}!");
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->with('error', 'Receipt recording failed: ' . $e->getMessage());
+            Log::error('Receipt recording failed: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Receipt recording failed: ' . $e->getMessage());
         }
     }
 

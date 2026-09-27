@@ -11,6 +11,8 @@ use App\Models\Lead;
 use App\Models\FollowupTask;
 use App\Services\TenantManager;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class QuotationController extends Controller
 {
@@ -61,37 +63,49 @@ class QuotationController extends Controller
         $prefix = $tenant ? $tenant->quotation_prefix : 'QUO';
         $quoteNumber = $prefix . '-' . date('Y') . '-' . rand(100, 999);
 
-        $quotation = Quotation::create([
-            'quotation_number' => $quoteNumber,
-            'quotation_date' => Carbon::today(),
-            'valid_until' => Carbon::today()->addDays(14),
-            'recipient_company' => $validated['recipient_company'],
-            'recipient_name' => $validated['recipient_name'] ?? null,
-            'recipient_phone' => $validated['recipient_phone'] ?? null,
-            'recipient_email' => $validated['recipient_email'] ?? null,
-            'subtotal' => $subtotal,
-            'tax_amount' => $taxAmount,
-            'total_amount' => $totalAmount,
-            'status' => 'SENT',
-            'payment_terms' => $validated['payment_terms'] ?? '100% advance or Letter of Credit at sight',
-            'freight_terms' => $validated['freight_terms'] ?? 'Ex-Factory Mahuva / FOB Mundra Port',
-            'delivery_timeline' => $validated['delivery_timeline'] ?? '7 to 10 days from PO confirmation',
-        ]);
-
-        foreach ($validated['items'] as $it) {
-            $amt = $it['quantity'] * $it['rate'];
-            QuotationItem::create([
-                'quotation_id' => $quotation->id,
-                'product_id' => $it['product_id'],
-                'quantity' => $it['quantity'],
-                'uom' => 'KG',
-                'rate' => $it['rate'],
-                'amount' => $amt,
-                'packaging' => $it['packaging'] ?? '25 KG HDPE Bag with Poly Liner',
+        DB::beginTransaction();
+        try {
+            $quotation = Quotation::create([
+                'quotation_number' => $quoteNumber,
+                'quotation_date' => Carbon::today(),
+                'valid_until' => Carbon::today()->addDays(14),
+                'recipient_company' => $validated['recipient_company'],
+                'recipient_name' => $validated['recipient_name'] ?? null,
+                'recipient_phone' => $validated['recipient_phone'] ?? null,
+                'recipient_email' => $validated['recipient_email'] ?? null,
+                'subtotal' => $subtotal,
+                'tax_amount' => $taxAmount,
+                'total_amount' => $totalAmount,
+                'status' => 'SENT',
+                'payment_terms' => $validated['payment_terms'] ?? '100% advance or Letter of Credit at sight',
+                'freight_terms' => $validated['freight_terms'] ?? 'Ex-Factory Mahuva / FOB Mundra Port',
+                'delivery_timeline' => $validated['delivery_timeline'] ?? '7 to 10 days from PO confirmation',
             ]);
-        }
 
-        return redirect()->route('quotations.show', $quotation->id)->with('success', "✓ Quotation {$quotation->quotation_number} generated successfully!");
+            foreach ($validated['items'] as $it) {
+                $amt = $it['quantity'] * $it['rate'];
+                QuotationItem::create([
+                    'quotation_id' => $quotation->id,
+                    'product_id' => $it['product_id'],
+                    'quantity' => $it['quantity'],
+                    'uom' => 'KG',
+                    'rate' => $it['rate'],
+                    'amount' => $amt,
+                    'packaging' => $it['packaging'] ?? '25 KG HDPE Bag with Poly Liner',
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('quotations.show', $quotation->id)->with('success', "✓ Quotation {$quotation->quotation_number} generated successfully!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Failed to generate quotation: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to generate quotation: ' . $e->getMessage());
+        }
     }
 
     public function update(Request $request, $id)
@@ -109,19 +123,41 @@ class QuotationController extends Controller
             'status' => 'nullable|string|max:50',
         ]);
 
-        $quotation->update($validated);
+        DB::beginTransaction();
+        try {
+            $quotation->update($validated);
+            DB::commit();
 
-        return back()->with('success', "✓ Quotation {$quotation->quotation_number} updated successfully!");
+            return back()->with('success', "✓ Quotation {$quotation->quotation_number} updated successfully!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to update quotation #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to update quotation: ' . $e->getMessage());
+        }
     }
 
     public function destroy($id)
     {
         $quotation = Quotation::findOrFail($id);
         $num = $quotation->quotation_number;
-        $quotation->items()->delete();
-        $quotation->delete();
 
-        return redirect()->route('quotations.index')->with('success', "✓ Quotation {$num} deleted successfully.");
+        DB::beginTransaction();
+        try {
+            $quotation->items()->delete();
+            $quotation->delete();
+            DB::commit();
+
+            return redirect()->route('quotations.index')->with('success', "✓ Quotation {$num} deleted successfully.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to delete quotation #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+            return back()->with('error', 'Failed to delete quotation: ' . $e->getMessage());
+        }
     }
 
     public function convert(Request $request, $id)
@@ -134,45 +170,53 @@ class QuotationController extends Controller
 
         $customerId = $request->input('customer_id', $quotation->customer_id);
 
-        // Redirect to new order page with prepopulated query parameters or just store it.
-        // The safest way is to pass the data to the orders view or create it as DRAFT, but since orders are created directly,
-        // we can pass data to session so `isNewOrderOpen` can pick it up, or just create the order and let user edit.
-        // Let's create the order directly.
         $tenantId = TenantManager::getTenantId();
         $orderNo = 'SO-' . date('Ymd') . '-' . rand(100, 999);
         
-        $order = \App\Models\SalesOrder::create([
-            'tenant_id' => $tenantId,
-            'order_number' => $orderNo,
-            'po_number' => 'PO-' . $quotation->quotation_number,
-            'po_date' => Carbon::today(),
-            'customer_id' => $customerId,
-            'order_date' => Carbon::today(),
-            'subtotal' => $quotation->subtotal,
-            'tax_amount' => $quotation->tax_amount,
-            'total_amount' => $quotation->total_amount,
-            'balance_amount' => $quotation->total_amount,
-            'payment_terms' => $quotation->payment_terms ?: '30 Days Credit',
-            'status' => 'CONFIRMED',
-            'notes' => "Converted from Quotation #{$quotation->quotation_number}.",
-        ]);
-
-        foreach ($quotation->items as $it) {
-            \App\Models\SalesOrderItem::create([
+        DB::beginTransaction();
+        try {
+            $order = \App\Models\SalesOrder::create([
                 'tenant_id' => $tenantId,
-                'sales_order_id' => $order->id,
-                'product_id' => $it->product_id,
-                'order_qty' => $it->quantity,
-                'rate' => $it->rate,
-                'order_value' => $it->amount,
-                'shipped_qty' => 0,
-                'balance_qty' => $it->quantity,
-                'status' => 'PENDING',
+                'order_number' => $orderNo,
+                'po_number' => 'PO-' . $quotation->quotation_number,
+                'po_date' => Carbon::today(),
+                'customer_id' => $customerId,
+                'order_date' => Carbon::today(),
+                'subtotal' => $quotation->subtotal,
+                'tax_amount' => $quotation->tax_amount,
+                'total_amount' => $quotation->total_amount,
+                'balance_amount' => $quotation->total_amount,
+                'payment_terms' => $quotation->payment_terms ?: '30 Days Credit',
+                'status' => 'CONFIRMED',
+                'notes' => "Converted from Quotation #{$quotation->quotation_number}.",
             ]);
+
+            foreach ($quotation->items as $it) {
+                \App\Models\SalesOrderItem::create([
+                    'tenant_id' => $tenantId,
+                    'sales_order_id' => $order->id,
+                    'product_id' => $it->product_id,
+                    'order_qty' => $it->quantity,
+                    'rate' => $it->rate,
+                    'order_value' => $it->amount,
+                    'shipped_qty' => 0,
+                    'balance_qty' => $it->quantity,
+                    'status' => 'PENDING',
+                ]);
+            }
+
+            $quotation->update(['status' => 'ACCEPTED']);
+
+            DB::commit();
+
+            return redirect()->route('orders.index')->with('success', "✓ Quotation {$quotation->quotation_number} successfully converted to Sales Order {$orderNo}.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to convert quotation #{$id} to order: " . $e->getMessage(), [
+                'exception' => $e,
+                'customer_id' => $customerId,
+            ]);
+            return back()->with('error', 'Failed to convert quotation to order: ' . $e->getMessage());
         }
-
-        $quotation->update(['status' => 'ACCEPTED']);
-
-        return redirect()->route('orders.index')->with('success', "✓ Quotation {$quotation->quotation_number} successfully converted to Sales Order {$orderNo}.");
     }
 }

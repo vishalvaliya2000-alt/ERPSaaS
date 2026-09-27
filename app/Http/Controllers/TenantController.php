@@ -9,6 +9,8 @@ use App\Services\TenantManager;
 use App\Services\ColorPaletteService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TenantController extends Controller
 {
@@ -57,47 +59,59 @@ class TenantController extends Controller
             'shipment_prefix' => 'required|string|max:20',
         ]);
 
-        // 1. Handle Logo Upload or Removal
-        if ($request->boolean('remove_logo')) {
-            if ($tenant->logo_url && Storage::disk('public')->exists(str_replace('storage/', '', $tenant->logo_url))) {
-                Storage::disk('public')->delete(str_replace('storage/', '', $tenant->logo_url));
+        DB::beginTransaction();
+        try {
+            // 1. Handle Logo Upload or Removal
+            if ($request->boolean('remove_logo')) {
+                if ($tenant->logo_url && Storage::disk('public')->exists(str_replace('storage/', '', $tenant->logo_url))) {
+                    Storage::disk('public')->delete(str_replace('storage/', '', $tenant->logo_url));
+                }
+                $tenant->logo_url = null;
+            } elseif ($request->hasFile('logo')) {
+                $file = $request->file('logo');
+                $path = $file->store('logos', 'public');
+                $tenant->logo_url = 'storage/' . $path;
+
+                // If user didn't explicitly specify custom colors, auto-extract from newly uploaded logo
+                if (!$request->filled('primary_color')) {
+                    $fullPath = storage_path('app/public/' . $path);
+                    $extracted = ColorPaletteService::extractFromImage($fullPath);
+                    $validated['primary_color'] = $extracted['primary_color'];
+                    $validated['accent_color'] = $extracted['accent_color'];
+                }
             }
-            $tenant->logo_url = null;
-        } elseif ($request->hasFile('logo')) {
-            $file = $request->file('logo');
-            $path = $file->store('logos', 'public');
-            $tenant->logo_url = 'storage/' . $path;
 
-            // If user didn't explicitly specify custom colors, auto-extract from newly uploaded logo
-            if (!$request->filled('primary_color')) {
-                $fullPath = storage_path('app/public/' . $path);
-                $extracted = ColorPaletteService::extractFromImage($fullPath);
-                $validated['primary_color'] = $extracted['primary_color'];
-                $validated['accent_color'] = $extracted['accent_color'];
+            // 2. Handle Theme Settings
+            $settings = $tenant->settings ?? [];
+            if ($request->filled('primary_color') || isset($validated['primary_color'])) {
+                $primary = $validated['primary_color'] ?? $request->input('primary_color');
+                $accent = $validated['accent_color'] ?? $request->input('accent_color') ?: '#70c040';
+                $settings['theme'] = [
+                    'primary_color' => $primary,
+                    'accent_color'  => $accent,
+                    'shades'        => ColorPaletteService::generateShades($primary),
+                    'updated_at'    => now()->toIso8601String(),
+                ];
             }
+            $tenant->settings = $settings;
+
+            // Remove non-column inputs before updating
+            unset($validated['logo'], $validated['remove_logo'], $validated['primary_color'], $validated['accent_color']);
+
+            $tenant->fill($validated);
+            $tenant->save();
+
+            DB::commit();
+
+            return back()->with('success', "✓ Organization profile, logo & brand theme updated for {$tenant->name}!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Failed to update tenant settings: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->except(['logo']),
+            ]);
+            return back()->withInput()->with('error', 'Failed to update organization settings: ' . $e->getMessage());
         }
-
-        // 2. Handle Theme Settings
-        $settings = $tenant->settings ?? [];
-        if ($request->filled('primary_color') || isset($validated['primary_color'])) {
-            $primary = $validated['primary_color'] ?? $request->input('primary_color');
-            $accent = $validated['accent_color'] ?? $request->input('accent_color') ?: '#70c040';
-            $settings['theme'] = [
-                'primary_color' => $primary,
-                'accent_color'  => $accent,
-                'shades'        => ColorPaletteService::generateShades($primary),
-                'updated_at'    => now()->toIso8601String(),
-            ];
-        }
-        $tenant->settings = $settings;
-
-        // Remove non-column inputs before updating
-        unset($validated['logo'], $validated['remove_logo'], $validated['primary_color'], $validated['accent_color']);
-
-        $tenant->fill($validated);
-        $tenant->save();
-
-        return back()->with('success', "✓ Organization profile, logo & brand theme updated for {$tenant->name}!");
     }
 
     public function team()
@@ -120,19 +134,31 @@ class TenantController extends Controller
             'password' => 'required|min:6',
         ]);
 
-        $user = User::create([
-            'tenant_id' => $tenant->id,
-            'name' => trim($validated['first_name'] . ' ' . $validated['last_name']),
-            'email' => strtolower($validated['email']),
-            'phone' => $validated['phone'] ?? null,
-            'password' => Hash::make($validated['password']),
-            'role' => $validated['role'],
-            'is_active' => true,
-        ]);
+        DB::beginTransaction();
+        try {
+            $user = User::create([
+                'tenant_id' => $tenant->id,
+                'name' => trim($validated['first_name'] . ' ' . $validated['last_name']),
+                'email' => strtolower($validated['email']),
+                'phone' => $validated['phone'] ?? null,
+                'password' => Hash::make($validated['password']),
+                'role' => $validated['role'],
+                'is_active' => true,
+            ]);
 
-        $user->assignRole($validated['role']);
+            $user->assignRole($validated['role']);
 
-        return back()->with('success', "✓ Team member {$user->name} created for {$tenant->name} with role {$validated['role']}!");
+            DB::commit();
+
+            return back()->with('success', "✓ Team member {$user->name} created for {$tenant->name} with role {$validated['role']}!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Failed to invite team member: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->except(['password']),
+            ]);
+            return back()->withInput()->with('error', 'Failed to add team member: ' . $e->getMessage());
+        }
     }
 
     public function removeMember($userId)
@@ -144,9 +170,20 @@ class TenantController extends Controller
             return back()->with('error', "You cannot remove your own active account.");
         }
 
-        $targetUser = User::where('tenant_id', $tenant->id)->findOrFail($userId);
-        $targetUser->delete();
+        DB::beginTransaction();
+        try {
+            $targetUser = User::where('tenant_id', $tenant->id)->findOrFail($userId);
+            $targetUser->delete();
 
-        return back()->with('success', "✓ User removed from {$tenant->name}.");
+            DB::commit();
+
+            return back()->with('success', "✓ User removed from {$tenant->name}.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to remove team member #{$userId}: " . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+            return back()->with('error', 'Failed to remove team member: ' . $e->getMessage());
+        }
     }
 }

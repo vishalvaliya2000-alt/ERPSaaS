@@ -13,6 +13,7 @@ use App\Models\ActivityLog;
 use App\Models\Product;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PipelineController extends Controller
 {
@@ -112,38 +113,53 @@ class PipelineController extends Controller
             $prodDesc = "{$qtyMt} MT {$prodDesc}" . ($rateKg > 0 ? " @ ₹{$rateKg}/KG" : "");
         }
 
-        $lead = Lead::create([
-            'company_name' => $validated['company_name'],
-            'contact_person' => $validated['contact_person'] ?? null,
-            'phone' => $validated['phone'] ?? null,
-            'whatsapp' => $validated['phone'] ?? null,
-            'email' => $validated['email'] ?? null,
-            'city' => $validated['city'] ?? null,
-            'state' => $validated['state'] ?? 'Gujarat',
-            'interested_products' => $prodDesc,
-            'estimated_value' => $calcValue,
-            'stage' => $validated['stage'] ?? 'LEAD',
-            'priority' => $validated['priority'] ?? 'HIGH',
-            'next_action' => $validated['next_action'],
-            'next_action_date' => !empty($validated['next_action_date']) ? Carbon::parse($validated['next_action_date']) : Carbon::now()->addDays(2),
-            'notes' => $validated['notes'] ?? null,
-        ]);
+        DB::beginTransaction();
+        try {
+            $lead = Lead::create([
+                'company_name' => $validated['company_name'],
+                'contact_person' => $validated['contact_person'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'whatsapp' => $validated['phone'] ?? null,
+                'email' => $validated['email'] ?? null,
+                'city' => $validated['city'] ?? null,
+                'state' => $validated['state'] ?? 'Gujarat',
+                'interested_products' => $prodDesc,
+                'estimated_value' => $calcValue,
+                'stage' => $validated['stage'] ?? 'LEAD',
+                'priority' => $validated['priority'] ?? 'HIGH',
+                'next_action' => $validated['next_action'],
+                'next_action_date' => !empty($validated['next_action_date']) ? Carbon::parse($validated['next_action_date']) : Carbon::now()->addDays(2),
+                'notes' => $validated['notes'] ?? null,
+            ]);
 
-        FollowupTask::create([
-            'lead_id' => $lead->id,
-            'type' => 'LEAD_NURTURING',
-            'reason' => "Deal Follow-up: {$lead->company_name}",
-            'next_action' => $validated['next_action'],
-            'priority' => $validated['priority'] ?? 'HIGH',
-            'due_date' => !empty($validated['next_action_date']) ? Carbon::parse($validated['next_action_date']) : Carbon::now()->addDays(2),
-            'status' => 'PENDING',
-        ]);
+            FollowupTask::create([
+                'lead_id' => $lead->id,
+                'type' => 'LEAD_NURTURING',
+                'reason' => "Deal Follow-up: {$lead->company_name}",
+                'next_action' => $validated['next_action'],
+                'priority' => $validated['priority'] ?? 'HIGH',
+                'due_date' => !empty($validated['next_action_date']) ? Carbon::parse($validated['next_action_date']) : Carbon::now()->addDays(2),
+                'status' => 'PENDING',
+            ]);
 
-        if ($request->wantsJson()) {
-            return response()->json(['success' => true, 'lead' => $lead]);
+            DB::commit();
+
+            if ($request->wantsJson()) {
+                return response()->json(['success' => true, 'lead' => $lead]);
+            }
+
+            return back()->with('success', "Commercial prospect {$lead->company_name} registered successfully!");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Failed to register pipeline deal: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Failed to create deal: ' . $e->getMessage()], 500);
+            }
+            return back()->withInput()->with('error', 'Failed to register prospect: ' . $e->getMessage());
         }
-
-        return back()->with('success', "Commercial prospect {$lead->company_name} registered successfully!");
     }
 
     public function updateStage(Request $request, $id)
@@ -152,33 +168,48 @@ class PipelineController extends Controller
         $oldStage = $lead->stage;
         $newStage = $request->input('stage');
 
-        $lead->stage = $newStage;
-        $lead->save();
-
-        if ($request->filled('next_action')) {
-            $lead->next_action = $request->input('next_action');
-            if ($request->filled('next_action_date')) {
-                $lead->next_action_date = Carbon::parse($request->input('next_action_date'));
-            }
+        DB::beginTransaction();
+        try {
+            $lead->stage = $newStage;
             $lead->save();
 
-            FollowupTask::create([
-                'lead_id' => $lead->id,
-                'customer_id' => $lead->converted_customer_id,
-                'type' => 'LEAD_NURTURING',
-                'reason' => "Stage changed from {$oldStage} to {$newStage}",
-                'next_action' => $lead->next_action,
-                'priority' => 'HIGH',
-                'due_date' => $lead->next_action_date ?: Carbon::now()->addDays(2),
-                'status' => 'PENDING',
+            if ($request->filled('next_action')) {
+                $lead->next_action = $request->input('next_action');
+                if ($request->filled('next_action_date')) {
+                    $lead->next_action_date = Carbon::parse($request->input('next_action_date'));
+                }
+                $lead->save();
+
+                FollowupTask::create([
+                    'lead_id' => $lead->id,
+                    'customer_id' => $lead->converted_customer_id,
+                    'type' => 'LEAD_NURTURING',
+                    'reason' => "Stage changed from {$oldStage} to {$newStage}",
+                    'next_action' => $lead->next_action,
+                    'priority' => 'HIGH',
+                    'due_date' => $lead->next_action_date ?: Carbon::now()->addDays(2),
+                    'status' => 'PENDING',
+                ]);
+            }
+
+            DB::commit();
+
+            if ($request->wantsJson()) {
+                return response()->json(['success' => true, 'lead' => $lead]);
+            }
+
+            return back()->with('success', "Deal stage updated to {$newStage}");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to update stage for lead #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
             ]);
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Failed to update deal stage: ' . $e->getMessage()], 500);
+            }
+            return back()->with('error', 'Failed to update deal stage: ' . $e->getMessage());
         }
-
-        if ($request->wantsJson()) {
-            return response()->json(['success' => true, 'lead' => $lead]);
-        }
-
-        return back()->with('success', "Deal stage updated to {$newStage}");
     }
 
     public function convertToCustomer(Request $request, $id)
@@ -187,7 +218,8 @@ class PipelineController extends Controller
 
         $customerCode = 'CUST-' . strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $lead->company_name), 0, 4)) . '-' . rand(100, 999);
 
-        DB::transaction(function () use ($lead, $customerCode, $request) {
+        DB::beginTransaction();
+        try {
             $customer = Customer::create([
                 'customer_code' => $customerCode,
                 'company_name' => $lead->company_name,
@@ -225,13 +257,25 @@ class PipelineController extends Controller
                 'title' => "🎉 Won & Converted: {$lead->company_name}",
                 'description' => "Commercial deal of " . formatINR($lead->estimated_value) . " converted into active client profile.",
             ]);
-        });
 
-        if ($request->wantsJson()) {
-            return response()->json(['success' => true, 'customer_id' => $lead->converted_customer_id]);
+            DB::commit();
+
+            if ($request->wantsJson()) {
+                return response()->json(['success' => true, 'customer_id' => $lead->converted_customer_id]);
+            }
+
+            return redirect()->route('customers.show', $lead->converted_customer_id)->with('success', "🎉 Deal Closed Won! {$lead->company_name} is now an active Customer account.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to convert lead #{$id} to customer: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+            ]);
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Failed to convert deal to customer: ' . $e->getMessage()], 500);
+            }
+            return back()->with('error', 'Failed to convert lead to customer: ' . $e->getMessage());
         }
-
-        return redirect()->route('customers.show', $lead->converted_customer_id)->with('success', "🎉 Deal Closed Won! {$lead->company_name} is now an active Customer account.");
     }
 
     public function logActivity(Request $request, $id)
@@ -244,24 +288,36 @@ class PipelineController extends Controller
             'next_action_date' => 'nullable|date',
         ]);
 
-        if (!empty($validated['next_action'])) {
-            $lead->next_action = $validated['next_action'];
-            if (!empty($validated['next_action_date'])) {
-                $lead->next_action_date = Carbon::parse($validated['next_action_date']);
+        DB::beginTransaction();
+        try {
+            if (!empty($validated['next_action'])) {
+                $lead->next_action = $validated['next_action'];
+                if (!empty($validated['next_action_date'])) {
+                    $lead->next_action_date = Carbon::parse($validated['next_action_date']);
+                }
+                $lead->save();
+
+                FollowupTask::create([
+                    'lead_id' => $lead->id,
+                    'customer_id' => $lead->converted_customer_id,
+                    'type' => 'LEAD_NURTURING',
+                    'reason' => "Communication note logged: " . substr($validated['notes'], 0, 50),
+                    'next_action' => $validated['next_action'],
+                    'due_date' => $lead->next_action_date ?: Carbon::now()->addDays(2),
+                    'status' => 'PENDING',
+                ]);
             }
-            $lead->save();
 
-            FollowupTask::create([
-                'lead_id' => $lead->id,
-                'customer_id' => $lead->converted_customer_id,
-                'type' => 'LEAD_NURTURING',
-                'reason' => "Communication note logged: " . substr($validated['notes'], 0, 50),
-                'next_action' => $validated['next_action'],
-                'due_date' => $lead->next_action_date ?: Carbon::now()->addDays(2),
-                'status' => 'PENDING',
+            DB::commit();
+
+            return back()->with('success', 'Communication note recorded successfully!');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to log activity for lead #{$id}: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
             ]);
+            return back()->with('error', 'Failed to log note: ' . $e->getMessage());
         }
-
-        return back()->with('success', 'Communication note recorded successfully!');
     }
 }
