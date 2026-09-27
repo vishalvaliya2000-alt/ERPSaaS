@@ -61,7 +61,7 @@ grep -q "^DB_CONNECTION=" /var/www/html/.env && sed -i "s|^DB_CONNECTION=.*|DB_C
 [ -n "$MYSQL_ATTR_SSL_CA" ] && { grep -q "^MYSQL_ATTR_SSL_CA=" /var/www/html/.env && sed -i "s|^MYSQL_ATTR_SSL_CA=.*|MYSQL_ATTR_SSL_CA=${MYSQL_ATTR_SSL_CA}|g" /var/www/html/.env || echo "MYSQL_ATTR_SSL_CA=${MYSQL_ATTR_SSL_CA}" >> /var/www/html/.env; }
 
 # 5. Storage & database permissions
-mkdir -p /var/www/html/storage/framework/{sessions,views,cache,data} /var/www/html/storage/logs /var/www/html/database
+mkdir -p /var/www/html/storage/framework/{sessions,views,cache,data} /var/www/html/storage/logs /var/www/html/storage/app/public /var/www/html/database
 touch /var/www/html/database/database.sqlite
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/database
 chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/database
