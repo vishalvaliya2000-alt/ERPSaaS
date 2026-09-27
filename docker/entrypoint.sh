@@ -46,18 +46,23 @@ else
     export APP_KEY=$(grep '^APP_KEY=' /var/www/html/.env | cut -d '=' -f2- | tr -d '\r')
 fi
 
-# 4. Database configuration (TiDB Cloud / MySQL or SQLite fallback)
-if [ -n "$DB_HOST" ]; then
-    echo "Configuring MySQL / TiDB database connection for ${DB_HOST}..."
-    export DB_CONNECTION=${DB_CONNECTION:-mysql}
-    grep -q "^DB_CONNECTION=" /var/www/html/.env && sed -i "s|^DB_CONNECTION=.*|DB_CONNECTION=${DB_CONNECTION}|g" /var/www/html/.env || echo "DB_CONNECTION=${DB_CONNECTION}" >> /var/www/html/.env
-    grep -q "^DB_HOST=" /var/www/html/.env && sed -i "s|^DB_HOST=.*|DB_HOST=${DB_HOST}|g" /var/www/html/.env || echo "DB_HOST=${DB_HOST}" >> /var/www/html/.env
-    [ -n "$DB_PORT" ] && (grep -q "^DB_PORT=" /var/www/html/.env && sed -i "s|^DB_PORT=.*|DB_PORT=${DB_PORT}|g" /var/www/html/.env || echo "DB_PORT=${DB_PORT}" >> /var/www/html/.env)
-    [ -n "$DB_DATABASE" ] && (grep -q "^DB_DATABASE=" /var/www/html/.env && sed -i "s|^DB_DATABASE=.*|DB_DATABASE=${DB_DATABASE}|g" /var/www/html/.env || echo "DB_DATABASE=${DB_DATABASE}" >> /var/www/html/.env)
-    [ -n "$DB_USERNAME" ] && (grep -q "^DB_USERNAME=" /var/www/html/.env && sed -i "s|^DB_USERNAME=.*|DB_USERNAME=${DB_USERNAME}|g" /var/www/html/.env || echo "DB_USERNAME=${DB_USERNAME}" >> /var/www/html/.env)
-    [ -n "$DB_PASSWORD" ] && (grep -q "^DB_PASSWORD=" /var/www/html/.env && sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=${DB_PASSWORD}|g" /var/www/html/.env || echo "DB_PASSWORD=${DB_PASSWORD}" >> /var/www/html/.env)
-    grep -q "^MYSQL_ATTR_SSL_CA=" /var/www/html/.env && sed -i "s|^MYSQL_ATTR_SSL_CA=.*|MYSQL_ATTR_SSL_CA=/etc/ssl/certs/isrgrootx1.pem|g" /var/www/html/.env || echo "MYSQL_ATTR_SSL_CA=/etc/ssl/certs/isrgrootx1.pem" >> /var/www/html/.env
-fi
+# 4. Database configuration (TiDB Cloud Serverless default)
+export DB_CONNECTION=${DB_CONNECTION:-mysql}
+export DB_HOST=${DB_HOST:-gateway01.ap-northeast-1.prod.aws.tidbcloud.com}
+export DB_PORT=${DB_PORT:-4000}
+export DB_DATABASE=${DB_DATABASE:-test}
+export DB_USERNAME=${DB_USERNAME:-3ZCA4dQE3L7yUNg.root}
+export DB_PASSWORD=${DB_PASSWORD:-PaGoTXnJkoC5m2bh}
+export MYSQL_ATTR_SSL_CA=/etc/ssl/certs/isrgrootx1.pem
+
+echo "Configuring MySQL / TiDB Cloud connection for ${DB_HOST}:${DB_PORT}..."
+grep -q "^DB_CONNECTION=" /var/www/html/.env && sed -i "s|^DB_CONNECTION=.*|DB_CONNECTION=${DB_CONNECTION}|g" /var/www/html/.env || echo "DB_CONNECTION=${DB_CONNECTION}" >> /var/www/html/.env
+grep -q "^DB_HOST=" /var/www/html/.env && sed -i "s|^DB_HOST=.*|DB_HOST=${DB_HOST}|g" /var/www/html/.env || echo "DB_HOST=${DB_HOST}" >> /var/www/html/.env
+grep -q "^DB_PORT=" /var/www/html/.env && sed -i "s|^DB_PORT=.*|DB_PORT=${DB_PORT}|g" /var/www/html/.env || echo "DB_PORT=${DB_PORT}" >> /var/www/html/.env
+grep -q "^DB_DATABASE=" /var/www/html/.env && sed -i "s|^DB_DATABASE=.*|DB_DATABASE=${DB_DATABASE}|g" /var/www/html/.env || echo "DB_DATABASE=${DB_DATABASE}" >> /var/www/html/.env
+grep -q "^DB_USERNAME=" /var/www/html/.env && sed -i "s|^DB_USERNAME=.*|DB_USERNAME=${DB_USERNAME}|g" /var/www/html/.env || echo "DB_USERNAME=${DB_USERNAME}" >> /var/www/html/.env
+grep -q "^DB_PASSWORD=" /var/www/html/.env && sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=${DB_PASSWORD}|g" /var/www/html/.env || echo "DB_PASSWORD=${DB_PASSWORD}" >> /var/www/html/.env
+grep -q "^MYSQL_ATTR_SSL_CA=" /var/www/html/.env && sed -i "s|^MYSQL_ATTR_SSL_CA=.*|MYSQL_ATTR_SSL_CA=${MYSQL_ATTR_SSL_CA}|g" /var/www/html/.env || echo "MYSQL_ATTR_SSL_CA=${MYSQL_ATTR_SSL_CA}" >> /var/www/html/.env
 
 # 5. Storage & database permissions
 mkdir -p /var/www/html/storage/framework/{sessions,views,cache,data} /var/www/html/storage/logs /var/www/html/database

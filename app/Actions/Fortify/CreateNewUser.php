@@ -91,7 +91,14 @@ class CreateNewUser implements CreatesNewUsers
                 'is_default' => true,
             ]);
 
-            $user->assignRole('OWNER');
+            try {
+                if (class_exists(\Spatie\Permission\Models\Role::class)) {
+                    \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'OWNER', 'guard_name' => 'web']);
+                    $user->assignRole('OWNER');
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Role assignment notice: " . $e->getMessage());
+            }
 
             return $user;
         });
