@@ -43,7 +43,7 @@
     ></div>
 
     <!-- Modal Dialog Positioner -->
-    <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-6">
+    <div class="flex min-h-full items-center justify-center p-2 text-center sm:p-4">
         <div
             x-show="{{ $name }}"
             x-transition:enter="ease-out duration-200"
@@ -53,10 +53,10 @@
             x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
             x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
             @click.stop
-            class="relative transform overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all w-full {{ $maxWidthClass }} border border-neutral-200/80 my-8"
+            class="relative transform overflow-hidden rounded-2xl sm:rounded-3xl bg-white text-left shadow-2xl transition-all w-full {{ $maxWidthClass }} border border-neutral-200/80 my-2 sm:my-8 max-h-[92vh] flex flex-col"
         >
             <!-- Signature Obsidian Header -->
-            <div class="bg-[#091315] px-6 py-5 border-b border-neutral-800 text-white flex items-center justify-between">
+            <div class="bg-[#091315] px-4 sm:px-6 py-4 sm:py-5 border-b border-neutral-800 text-white flex items-center justify-between shrink-0">
                 <div class="flex items-center gap-3">
                     @if ($icon)
                         <div class="w-10 h-10 rounded-2xl bg-[#112225] border border-neutral-700/60 text-[#D7FF53] flex items-center justify-center text-lg shrink-0">
@@ -85,13 +85,13 @@
             </div>
 
             <!-- Modal Content Body -->
-            <div class="p-6">
+            <div class="p-4 sm:p-6 overflow-y-auto flex-1 touch-scroll">
                 {{ $slot }}
             </div>
 
             @if (isset($footer))
                 <!-- Modal Footer -->
-                <div class="px-6 py-4 bg-[#F5F6F8]/80 border-t border-neutral-100 flex items-center justify-end gap-3">
+                <div class="px-4 sm:px-6 py-3 sm:py-4 bg-[#F5F6F8]/80 border-t border-neutral-100 flex items-center justify-end gap-2 sm:gap-3 shrink-0">
                     {{ $footer }}
                 </div>
             @endif

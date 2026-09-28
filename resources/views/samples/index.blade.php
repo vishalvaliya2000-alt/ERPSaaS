@@ -5,7 +5,7 @@
 @section('content')
 <div class="space-y-6" x-data="samplesPageApp()">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-neutral-200/80 shadow-xs">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-xs">
         <div>
             <h2 class="text-xl font-black text-neutral-900">Samples Evaluation & Trial Lifecycle</h2>
             <p class="text-xs text-neutral-500 mt-1">
@@ -15,7 +15,7 @@
 
         <button
             @click="isNewSampleOpen = true"
-            class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#f53003] hover:bg-[#c42602] shadow-xs transition-colors cursor-pointer"
+            class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#f53003] hover:bg-[#c42602] shadow-xs transition-colors cursor-pointer shrink-0"
         >
             + Dispatch New Sample
         </button>
@@ -34,7 +34,7 @@
                 ];
                 $color = $statusColors[$s->delivery_status] ?? 'bg-slate-100 text-slate-800 border-slate-200';
             @endphp
-            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4 flex flex-col justify-between">
+            <div class="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4 flex flex-col justify-between">
                 <div>
                     <!-- Header -->
                     <div class="flex items-start justify-between gap-2 border-b border-slate-100 pb-3">
@@ -55,7 +55,7 @@
                     </div>
 
                     <!-- Details -->
-                    <div class="grid grid-cols-2 gap-2 p-3 bg-slate-50 rounded-xl text-xs text-slate-600 my-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 rounded-xl text-xs text-slate-600 my-3">
                         <div>
                             <span class="text-[10px] font-bold uppercase text-slate-400 block">Quantity & Batch</span>
                             <span class="font-bold text-slate-800">{{ $s->quantity }} {{ $s->uom }} ({{ $s->batch_number ?: 'Standard' }})</span>
@@ -96,11 +96,11 @@
                 </div>
 
                 <!-- Footer Actions -->
-                <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+                <div class="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap pt-3 border-t border-slate-100">
                     <button
                         type="button"
                         @click="openFeedbackModal({{ $s->id }}, '{{ addslashes($s->customer->company_name ?? 'Client') }}', '{{ addslashes($s->remarks ?? '') }}')"
-                        class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200"
+                        class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 cursor-pointer"
                     >
                         📝 Edit Feedback / Remarks
                     </button>
@@ -121,9 +121,9 @@
 
     <!-- Dispatch Sample Modal -->
     <template x-teleport="body">
-        <div x-show="isNewSampleOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isNewSampleOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden flex flex-col">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isNewSampleOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isNewSampleOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center font-bold text-sm">
                             🧪
@@ -133,9 +133,9 @@
                             <p class="text-[11px] text-[#D7FF53] font-mono">Send sample with DTDC/Trackon AWB & internal remarks</p>
                         </div>
                     </div>
-                    <button @click="isNewSampleOpen = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors">✕</button>
+                    <button @click="isNewSampleOpen = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors p-1">✕</button>
                 </div>
-                <form action="{{ route('samples.store') }}" method="POST" class="p-5 space-y-3 text-xs">
+                <form action="{{ route('samples.store') }}" method="POST" class="p-4 sm:p-5 space-y-3 text-xs overflow-y-auto flex-1 touch-scroll">
                     @csrf
                     <div>
                         <label class="block font-bold text-neutral-700 mb-1">Customer / Recipient Account</label>
@@ -145,7 +145,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Product Cut</label>
                             <select name="product_id" class="w-full px-3 py-2 border border-neutral-200 bg-white rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
@@ -159,7 +159,7 @@
                             <input type="number" step="0.5" name="quantity" value="1.0" class="w-full px-3 py-2 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Courier Partner</label>
                             <select name="courier_provider" class="w-full px-3 py-2 border border-neutral-200 bg-white rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
@@ -193,9 +193,9 @@
 
     <!-- Edit Feedback & Remarks Modal -->
     <template x-teleport="body">
-        <div x-show="isFeedbackOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isFeedbackOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden flex flex-col">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isFeedbackOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isFeedbackOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center font-bold text-sm">
                             📝
@@ -205,9 +205,9 @@
                             <p class="text-[11px] text-[#D7FF53] font-mono">Sensory lab outcome & approval</p>
                         </div>
                     </div>
-                    <button @click="isFeedbackOpen = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors">✕</button>
+                    <button @click="isFeedbackOpen = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors p-1">✕</button>
                 </div>
-                <form :action="'/samples/' + currentSampleId + '/status'" method="POST" class="p-5 space-y-3 text-xs">
+                <form :action="'/samples/' + currentSampleId + '/status'" method="POST" class="p-4 sm:p-5 space-y-3 text-xs overflow-y-auto flex-1 touch-scroll">
                     @csrf
                     <div>
                         <label class="block font-bold text-neutral-700 mb-1">Delivery Status</label>

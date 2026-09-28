@@ -5,7 +5,7 @@
 @section('content')
 <div class="space-y-6" x-data="quotationsPageApp()">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-neutral-200/80 shadow-xs">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-xs">
         <div>
             <h2 class="text-xl font-black text-neutral-900">Quotation Generator & History</h2>
             <p class="text-xs text-neutral-500 mt-1">
@@ -15,14 +15,14 @@
 
         <button
             @click="isNewQuoteOpen = true"
-            class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#f53003] hover:bg-[#c42602] shadow-xs transition-colors cursor-pointer"
+            class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#f53003] hover:bg-[#c42602] shadow-xs transition-colors cursor-pointer shrink-0"
         >
             + Create New Quotation
         </button>
     </div>
 
     <!-- Quotations Table -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+    <div class="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-left text-xs border-collapse">
                 <thead>
@@ -83,9 +83,9 @@
 
     <!-- Create Quotation Modal -->
     <template x-teleport="body">
-        <div x-show="isNewQuoteOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isNewQuoteOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isNewQuoteOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isNewQuoteOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-2xl overflow-hidden max-h-[92vh] flex flex-col">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center font-bold text-sm">
                             📄
@@ -95,11 +95,11 @@
                             <p class="text-[11px] text-[#D7FF53] font-mono">Formal Proforma & Pricing Commitment</p>
                         </div>
                     </div>
-                    <button @click="isNewQuoteOpen = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors">✕</button>
+                    <button @click="isNewQuoteOpen = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors p-1">✕</button>
                 </div>
-                <form action="{{ route('quotations.store') }}" method="POST" class="p-5 space-y-4 text-xs overflow-y-auto flex-1">
+                <form action="{{ route('quotations.store') }}" method="POST" class="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1 touch-scroll">
                     @csrf
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Company / Client Name</label>
                             <input type="text" name="recipient_company" placeholder="e.g. Gimi Michi Food Ingredients" class="w-full px-3 py-2 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
@@ -110,7 +110,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Payment Terms</label>
                             <input type="text" name="payment_terms" value="30 Days Credit" class="w-full px-3 py-2 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
@@ -124,8 +124,8 @@
                     <!-- Product Line Item -->
                     <div class="p-3.5 bg-[#F5F6F8] rounded-2xl border border-neutral-200/80 space-y-3">
                         <span class="font-bold text-neutral-800 block">Line Item #1</span>
-                        <div class="grid grid-cols-3 gap-3">
-                            <div class="col-span-1">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
                                 <label class="block font-bold text-neutral-700 mb-1">Product</label>
                                 <select name="items[0][product_id]" class="w-full px-2.5 py-2 border border-neutral-200 bg-white rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
                                     @foreach($products as $p)

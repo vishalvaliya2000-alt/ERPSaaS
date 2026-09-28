@@ -5,18 +5,18 @@
 @section('content')
 <div class="max-w-5xl mx-auto space-y-6" x-data="{ showInviteModal: false }">
     <!-- Header -->
-    <div class="bg-white p-6 rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl bg-neutral-900 text-[#f53003] font-black text-xl flex items-center justify-center shadow-md">
+            <div class="w-12 h-12 rounded-2xl bg-neutral-900 text-[#f53003] font-black text-xl flex items-center justify-center shadow-md shrink-0">
                 👥
             </div>
             <div>
-                <h1 class="text-2xl font-black text-neutral-900">{{ $tenant?->name }} Team & Access</h1>
+                <h1 class="text-xl sm:text-2xl font-black text-neutral-900">{{ $tenant?->name }} Team & Access</h1>
                 <p class="text-xs text-neutral-500">Manage user accounts, roles, and operational permissions for this organization</p>
             </div>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
             <a href="{{ route('organization.settings') }}" class="px-4 py-2 text-xs font-bold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-all">
                 ← Company Settings
             </a>
@@ -27,7 +27,7 @@
     </div>
 
     <!-- Team Members Table -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+    <div class="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
         <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <span class="text-xs font-bold text-slate-700">Active Members ({{ $members->count() }})</span>
             <span class="text-[11px] text-slate-500">Each member only has access to {{ $tenant?->name }}</span>
@@ -35,13 +35,13 @@
 
         <div class="divide-y divide-slate-100">
             @foreach($members as $m)
-                <div class="p-4 flex items-center justify-between hover:bg-slate-50/60 transition-colors">
+                <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60 transition-colors">
                     <div class="flex items-center gap-3.5">
-                        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-800 to-slate-950 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-800 to-slate-950 text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0">
                             {{ substr($m->name, 0, 2) }}
                         </div>
                         <div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 flex-wrap">
                                 <span class="font-bold text-xs text-slate-900">{{ $m->name }}</span>
                                 @if(strtoupper($m->role) === 'OWNER')
                                     <span class="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-200">
@@ -69,11 +69,11 @@
                                     </span>
                                 @endif
                             </div>
-                            <span class="text-[11px] text-slate-500">{{ $m->email }} · {{ $m->phone ?: 'No phone' }}</span>
+                            <span class="text-[11px] text-slate-500 break-all">{{ $m->email }} · {{ $m->phone ?: 'No phone' }}</span>
                         </div>
                     </div>
 
-                    <div>
+                    <div class="shrink-0 self-end sm:self-auto">
                         @if($m->id !== auth()->id() && strtoupper($m->role) !== 'OWNER')
                             <form action="{{ route('organization.team.remove', $m->id) }}" method="POST" onsubmit="return confirm('Remove {{ $m->name }} from {{ $tenant?->name }}?');">
                                 @csrf
@@ -92,9 +92,9 @@
 
     <!-- Invite Team Member Modal -->
     <template x-teleport="body">
-        <div x-show="showInviteModal" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="showInviteModal = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 max-w-lg w-full overflow-hidden flex flex-col">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="showInviteModal" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="showInviteModal = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 max-w-lg w-full max-h-[92vh] overflow-hidden flex flex-col">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center font-bold text-sm">
                             👥
@@ -104,13 +104,13 @@
                             <p class="text-[11px] text-[#D7FF53] font-mono">Grant workspace access to {{ $tenant?->name }}</p>
                         </div>
                     </div>
-                    <button @click="showInviteModal = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors">✕</button>
+                    <button @click="showInviteModal = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors p-1">✕</button>
                 </div>
 
-                <form action="{{ route('organization.team.invite') }}" method="POST" class="p-5 space-y-4 text-xs">
+                <form action="{{ route('organization.team.invite') }}" method="POST" class="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1 touch-scroll">
                     @csrf
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-neutral-700 mb-1">First Name *</label>
                             <input type="text" name="first_name" required class="w-full px-3 py-2 text-xs border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
@@ -131,7 +131,7 @@
                         <input type="text" name="phone" placeholder="+91..." class="w-full px-3 py-2 text-xs border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-neutral-700 mb-1">Role / Permissions *</label>
                             <select name="role" required class="w-full px-3 py-2 text-xs border border-neutral-200 bg-white rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden font-bold">

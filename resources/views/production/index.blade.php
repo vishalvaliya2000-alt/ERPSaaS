@@ -5,7 +5,7 @@
 @section('content')
 <div class="space-y-6" x-data="productionPageApp()">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-neutral-200/80 shadow-xs">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-xs">
         <div>
             <h2 class="text-xl font-black text-neutral-900">Production Batches & Godown Stocks</h2>
             <p class="text-xs text-neutral-500 mt-1">
@@ -15,7 +15,7 @@
 
         <button
             @click="isNewBatchOpen = true"
-            class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#f53003] hover:bg-[#c42602] shadow-xs transition-colors cursor-pointer"
+            class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#f53003] hover:bg-[#c42602] shadow-xs transition-colors cursor-pointer shrink-0"
         >
             + Register Production Batch
         </button>
@@ -23,19 +23,19 @@
 
     <!-- KPIs -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+        <div class="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs">
             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Finished Goods</span>
             <p class="text-2xl font-black text-slate-900 mt-1">{{ number_format($totalStockKg) }} KG</p>
             <p class="text-[11px] text-emerald-600 font-bold mt-0.5">Stored in Bhavnagar Plant Godowns</p>
         </div>
 
-        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+        <div class="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs">
             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Active QA Batches</span>
             <p class="text-2xl font-black text-brand-600 mt-1">{{ count($batches) }} Batches</p>
             <p class="text-[11px] text-slate-500 font-bold mt-0.5">Export Grade A+ Quality Approved</p>
         </div>
 
-        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+        <div class="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs">
             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Low Stock Threshold Alerts</span>
             <p class="text-2xl font-black {{ $lowStockCount > 0 ? 'text-amber-600' : 'text-emerald-600' }} mt-1">{{ $lowStockCount }} SKUs</p>
             <p class="text-[11px] text-slate-500 font-bold mt-0.5">Threshold: 5,000 KG min</p>
@@ -43,12 +43,12 @@
     </div>
 
     <!-- Inventory Stocks Table -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+    <div class="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
         <div class="p-4 border-b border-slate-200 flex items-center justify-between">
             <h3 class="font-bold text-sm text-slate-900">Current Godown Inventory Stock by Product</h3>
             <span class="text-xs text-slate-500">Live stock balance</span>
         </div>
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto touch-scroll">
             <table class="w-full text-left text-xs border-collapse">
                 <thead>
                     <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
@@ -94,9 +94,9 @@
 
     <!-- Register Batch Modal -->
     <template x-teleport="body">
-        <div x-show="isNewBatchOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isNewBatchOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden flex flex-col">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isNewBatchOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isNewBatchOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center font-bold text-sm">
                             ⚙️
@@ -106,9 +106,9 @@
                             <p class="text-[11px] text-[#D7FF53] font-mono">Quality-Approved Dehydration Run</p>
                         </div>
                     </div>
-                    <button @click="isNewBatchOpen = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors">✕</button>
+                    <button @click="isNewBatchOpen = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors p-1">✕</button>
                 </div>
-                <form action="{{ route('production.batch.store') }}" method="POST" class="p-5 space-y-3 text-xs">
+                <form action="{{ route('production.batch.store') }}" method="POST" class="p-4 sm:p-5 space-y-3 text-xs overflow-y-auto flex-1 touch-scroll">
                     @csrf
                     <div>
                         <label class="block font-bold text-neutral-700 mb-1">Product Cut</label>
@@ -118,7 +118,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Batch Output Qty (KG)</label>
                             <input type="number" name="batch_qty" value="5000" class="w-full px-3 py-2 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
@@ -128,7 +128,7 @@
                             <input type="number" step="0.1" name="moisture_percentage" value="4.8" class="w-full px-3 py-2 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Sensory Grade</label>
                             <input type="text" name="sensory_grade" value="Premium Export Grade A+" class="w-full px-3 py-2 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">

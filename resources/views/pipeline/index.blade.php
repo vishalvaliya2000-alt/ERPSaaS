@@ -6,7 +6,7 @@
 <div class="space-y-6 pb-12" x-data="pipelineEngineApp()">
 
     <!-- 1. COMPACT PAGE HEADER -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 lg:p-6 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-2xl bg-[#091315] text-[#D7FF53] flex items-center justify-center text-lg shrink-0 shadow-xs border border-neutral-800">
                 📑
@@ -126,7 +126,7 @@
             @endphp
             <div
                 x-show="shouldShowLead(@js($lead))"
-                class="bg-white rounded-3xl border border-neutral-200/80 p-5 lg:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-md transition-all space-y-4 group"
+                class="bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/80 p-4 sm:p-5 lg:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-md transition-all space-y-4 group"
             >
                 <!-- Row 1: Company Profile, Deal Value & Quick Contacts -->
                 <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-neutral-100">
@@ -377,9 +377,9 @@
 
     <!-- 5. MODAL: NEW COMMERCIAL DEAL / RFQ -->
     <template x-teleport="body">
-        <div x-show="isNewDealOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isNewDealOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-2xl overflow-hidden text-xs flex flex-col max-h-[90vh]">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isNewDealOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isNewDealOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-2xl overflow-hidden text-xs flex flex-col max-h-[92vh]">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center text-lg font-bold">
                             🎯
@@ -389,10 +389,10 @@
                             <p class="text-[11px] text-[#D7FF53] font-mono">Record buyer specifications, volume & target pricing</p>
                         </div>
                     </div>
-                    <button @click="isNewDealOpen = false" class="text-neutral-400 hover:text-white text-base cursor-pointer">✕</button>
+                    <button @click="isNewDealOpen = false" class="text-neutral-400 hover:text-white text-base cursor-pointer p-1">✕</button>
                 </div>
 
-                <form action="{{ route('pipeline.store') }}" method="POST" class="p-6 space-y-4 overflow-y-auto flex-1">
+                <form action="{{ route('pipeline.store') }}" method="POST" class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 touch-scroll">
                     @csrf
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -504,9 +504,9 @@
 
     <!-- 6. MODAL: WHATSAPP DEAL CLOSER DRAWER -->
     <template x-teleport="body">
-        <div x-show="isWhatsAppCloserOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isWhatsAppCloserOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden text-xs flex flex-col">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isWhatsAppCloserOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isWhatsAppCloserOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg max-h-[92vh] overflow-hidden text-xs flex flex-col">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <span class="text-lg">💬</span>
                         <div>
@@ -514,10 +514,10 @@
                             <p class="text-[11px] text-[#D7FF53] font-mono" x-text="whatsAppData.recipientName"></p>
                         </div>
                     </div>
-                    <button @click="isWhatsAppCloserOpen = false" class="text-neutral-400 hover:text-white text-base cursor-pointer">✕</button>
+                    <button @click="isWhatsAppCloserOpen = false" class="text-neutral-400 hover:text-white text-base cursor-pointer p-1">✕</button>
                 </div>
 
-                <div class="p-5 space-y-4">
+                <div class="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 touch-scroll">
                     <!-- Template Selector Chips -->
                     <div>
                         <label class="block text-xs font-bold text-neutral-700 mb-1.5">Choose Business Message Template</label>
@@ -571,17 +571,17 @@
 
     <!-- 7. MODAL: CONVERT LEAD TO CUSTOMER & CREATE PO -->
     <template x-teleport="body">
-        <div x-show="isConvertModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isConvertModalOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden text-xs flex flex-col">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isConvertModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isConvertModalOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg max-h-[92vh] overflow-hidden text-xs flex flex-col">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div>
                         <h3 class="font-extrabold text-sm font-display">Convert Prospect to Active Customer</h3>
                         <p class="text-[11px] text-[#D7FF53] font-mono" x-text="convertData.companyName"></p>
                     </div>
-                    <button @click="isConvertModalOpen = false" class="text-neutral-400 hover:text-white cursor-pointer">✕</button>
+                    <button @click="isConvertModalOpen = false" class="text-neutral-400 hover:text-white cursor-pointer p-1">✕</button>
                 </div>
 
-                <form :action="'/pipeline/' + convertData.id + '/convert'" method="POST" class="p-5 space-y-4">
+                <form :action="'/pipeline/' + convertData.id + '/convert'" method="POST" class="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 touch-scroll">
                     @csrf
                     <div class="p-3.5 bg-[#F5F6F8] rounded-2xl border border-neutral-200/80 text-neutral-800 leading-relaxed">
                         This will automatically create an active profile in your <b>Customer 360 directory</b>, register the primary contact, and transition this deal into <b>Closed Won</b>.
@@ -615,17 +615,17 @@
 
     <!-- 8. MODAL: LOG COMMUNICATION NOTE -->
     <template x-teleport="body">
-        <div x-show="isLogModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isLogModalOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden text-xs flex flex-col">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isLogModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isLogModalOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg max-h-[92vh] overflow-hidden text-xs flex flex-col">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div>
                         <h3 class="font-extrabold text-sm font-display">Log Buyer Communication Note</h3>
                         <p class="text-[11px] text-[#D7FF53] font-mono" x-text="logData.companyName"></p>
                     </div>
-                    <button @click="isLogModalOpen = false" class="text-neutral-400 hover:text-white cursor-pointer">✕</button>
+                    <button @click="isLogModalOpen = false" class="text-neutral-400 hover:text-white cursor-pointer p-1">✕</button>
                 </div>
 
-                <form :action="'/pipeline/' + logData.id + '/activity'" method="POST" class="p-5 space-y-4">
+                <form :action="'/pipeline/' + logData.id + '/activity'" method="POST" class="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 touch-scroll">
                     @csrf
                     <div>
                         <label class="block font-bold text-neutral-700 mb-1">Communication Summary <span class="text-rose-500">*</span></label>
@@ -656,9 +656,9 @@
 
     <!-- 9. MODAL: GENERATE PROSPECT QUOTATION -->
     <template x-teleport="body">
-        <div x-show="isLeadQuoteModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isLeadQuoteModalOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-2xl overflow-hidden text-xs flex flex-col max-h-[90vh]">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isLeadQuoteModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isLeadQuoteModalOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-2xl overflow-hidden text-xs flex flex-col max-h-[92vh]">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <span class="text-lg">📄</span>
                         <div>
@@ -666,10 +666,10 @@
                             <p class="text-[11px] text-[#D7FF53] font-mono" x-text="'For ' + leadQuoteData.companyName"></p>
                         </div>
                     </div>
-                    <button @click="isLeadQuoteModalOpen = false" class="text-neutral-400 hover:text-white text-base cursor-pointer">✕</button>
+                    <button @click="isLeadQuoteModalOpen = false" class="text-neutral-400 hover:text-white text-base cursor-pointer p-1">✕</button>
                 </div>
 
-                <form action="{{ route('quotations.store') }}" method="POST" class="p-6 space-y-4 overflow-y-auto flex-1" x-data="{ items: [{ product_id: '{{ $products->first()?->id ?? 1 }}', quantity: 10000, rate: 280, packaging: '25 KG Bag / Carton' }] }">
+                <form action="{{ route('quotations.store') }}" method="POST" class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 touch-scroll" x-data="{ items: [{ product_id: '{{ $products->first()?->id ?? 1 }}', quantity: 10000, rate: 280, packaging: '25 KG Bag / Carton' }] }">
                     @csrf
                     <input type="hidden" name="recipient_company" :value="leadQuoteData.companyName">
                     <input type="hidden" name="recipient_name" :value="leadQuoteData.contactPerson">
@@ -749,9 +749,9 @@
 
     <!-- 10. MODAL: DISPATCH PROSPECT EVALUATION SAMPLE -->
     <template x-teleport="body">
-        <div x-show="isLeadSampleModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isLeadSampleModalOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden text-xs flex flex-col max-h-[90vh]">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isLeadSampleModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isLeadSampleModalOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden text-xs flex flex-col max-h-[92vh]">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <span class="text-lg">🧪</span>
                         <div>
@@ -759,10 +759,10 @@
                             <p class="text-[11px] text-[#D7FF53] font-mono" x-text="'For ' + leadSampleData.companyName"></p>
                         </div>
                     </div>
-                    <button @click="isLeadSampleModalOpen = false" class="text-neutral-400 hover:text-white text-base cursor-pointer">✕</button>
+                    <button @click="isLeadSampleModalOpen = false" class="text-neutral-400 hover:text-white text-base cursor-pointer p-1">✕</button>
                 </div>
 
-                <form action="{{ route('samples.store') }}" method="POST" class="p-6 space-y-4 overflow-y-auto flex-1">
+                <form action="{{ route('samples.store') }}" method="POST" class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 touch-scroll">
                     @csrf
                     <input type="hidden" name="lead_id" :value="leadSampleData.id">
                     <input type="hidden" name="recipient_name" :value="leadSampleData.contactPerson">
@@ -776,7 +776,7 @@
                         </select>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Quantity</label>
                             <input type="number" step="0.1" name="quantity" value="0.5" class="w-full px-3 py-2 border border-neutral-300 rounded-xl font-bold focus:ring-2 focus:ring-[#091315]" required>
@@ -790,7 +790,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Courier Partner</label>
                             <select name="courier_provider" class="w-full px-3 py-2 border border-neutral-300 rounded-xl bg-white focus:ring-2 focus:ring-[#091315]">

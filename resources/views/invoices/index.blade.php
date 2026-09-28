@@ -5,7 +5,7 @@
 @section('content')
 <div class="space-y-6 pb-12" x-data="invoicesPageApp()">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 lg:p-7 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 lg:p-7 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div>
             <div class="flex items-center gap-2 mb-1">
                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F6F8] text-neutral-600 border border-neutral-200/80 font-mono uppercase tracking-wider">Accounting</span>
@@ -48,7 +48,7 @@
     </div>
 
     <!-- Rule Alert Banner -->
-    <div class="bg-[#F3FED4]/60 border border-[#D7FF53] rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-neutral-900">
+    <div class="bg-[#F3FED4]/60 border border-[#D7FF53] rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-neutral-900">
         <div class="flex items-center gap-3">
             <span class="text-xl">🛡️</span>
             <div>
@@ -63,19 +63,19 @@
 
     <!-- Financial KPIs -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="bg-white p-6 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+        <div class="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
             <span class="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block font-mono">Total Invoiced</span>
             <p class="text-2xl font-black text-neutral-900 mt-1 font-display">{{ formatINR($totalBilled) }}</p>
             <p class="text-[11px] text-neutral-500 font-bold mt-1 font-mono">{{ count($invoices) }} Tax Invoices</p>
         </div>
 
-        <div class="bg-white p-6 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+        <div class="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
             <span class="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block font-mono">Total Collections</span>
             <p class="text-2xl font-black text-emerald-600 mt-1 font-display">{{ formatINR($totalReceived) }}</p>
             <p class="text-[11px] text-emerald-700 font-bold mt-1 font-mono">{{ count($receipts) }} Settlements</p>
         </div>
 
-        <div class="bg-white p-6 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+        <div class="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
             <span class="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block font-mono">Balance Outstanding</span>
             <p class="text-2xl font-black text-rose-600 mt-1 font-display">{{ formatINR($totalOutstanding) }}</p>
             <p class="text-[11px] text-rose-600 font-bold mt-1 font-mono">{{ $pendingCount }} Invoices Awaiting Payment</p>
@@ -83,7 +83,7 @@
     </div>
 
     <!-- View Switcher, Status Filters & Live Search Toolbar -->
-    <div class="bg-white p-4 lg:p-5 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <!-- Status Filter Pills -->
         <div class="flex items-center gap-1.5 flex-wrap">
             <button
@@ -659,9 +659,9 @@
 
     <!-- Generate Invoice Modal (With Multi-PO Shipment Item Allocation) -->
     <template x-teleport="body">
-        <div x-show="isNewInvoiceOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isNewInvoiceOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-3xl overflow-hidden max-h-[92vh] flex flex-col" x-data="invoiceModalForm()">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isNewInvoiceOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isNewInvoiceOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-3xl overflow-hidden max-h-[92vh] flex flex-col" x-data="invoiceModalForm()">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center font-bold text-sm">
                             🧾
@@ -674,7 +674,7 @@
                     <button @click="isNewInvoiceOpen = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors">✕</button>
                 </div>
 
-                <form action="{{ route('invoices.store') }}" method="POST" enctype="multipart/form-data" class="p-5 space-y-4 text-xs overflow-y-auto flex-1">
+                <form action="{{ route('invoices.store') }}" method="POST" enctype="multipart/form-data" class="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1">
                     @csrf
 
                     <!-- Customer Account -->
@@ -803,8 +803,8 @@
                                         ✕
                                     </button>
 
-                                    <div class="grid grid-cols-12 gap-2.5 items-end pr-5">
-                                        <div class="col-span-5">
+                                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end pr-0 sm:pr-5">
+                                        <div class="sm:col-span-5">
                                             <label class="block font-bold text-slate-700 mb-1 text-[11px]" x-text="'Item #' + (idx + 1) + ' Product *'"></label>
                                             <select :name="'items[' + idx + '][product_id]'" x-model="item.product_id" @change="onProductSelect(item, $event)" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-medium text-xs bg-white" required>
                                                 @foreach($products as $p)
@@ -812,7 +812,7 @@
                                                 @endforeach
                                             </select>
                                         </div>
-                                        <div class="col-span-3">
+                                        <div class="sm:col-span-3">
                                             <label class="block font-bold text-slate-700 mb-1 text-[11px]">Sales Order (PO)</label>
                                             <select :name="'items[' + idx + '][order_id]'" x-model="item.order_id" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-medium text-xs bg-white">
                                                 <option value="">-- Direct Sale --</option>
@@ -821,11 +821,11 @@
                                                 </template>
                                             </select>
                                         </div>
-                                        <div class="col-span-2">
+                                        <div class="sm:col-span-2">
                                             <label class="block font-bold text-slate-700 mb-1 text-[11px]">Qty (KG) *</label>
                                             <input type="number" step="0.5" :name="'items[' + idx + '][quantity]'" x-model="item.quantity" @input="recalculateDirectTotals()" placeholder="5000" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-bold text-xs bg-white text-right" required>
                                         </div>
-                                        <div class="col-span-2">
+                                        <div class="sm:col-span-2">
                                             <label class="block font-bold text-slate-700 mb-1 text-[11px]">Rate/KG (₹) *</label>
                                             <input type="number" step="0.5" :name="'items[' + idx + '][rate]'" x-model="item.rate" @input="recalculateDirectTotals()" placeholder="120" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-bold text-xs bg-white text-right" required>
                                         </div>
@@ -843,7 +843,7 @@
                     </div>
 
                     <!-- Invoice No, Date & Payment Terms -->
-                    <div class="grid grid-cols-3 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="block font-bold text-slate-700 mb-1">Invoice Number *</label>
                             <input type="text" name="invoice_number" placeholder="e.g. INV-158" class="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold text-xs" required>
@@ -863,7 +863,7 @@
 
                     <!-- Tax & Additional Charges Section -->
                     <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                        <div class="grid grid-cols-3 gap-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div>
                                 <label class="block font-bold text-slate-700 mb-1">GST Tax Rate</label>
                                 <select name="gst_rate" x-model="gstRate" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-xl bg-white font-bold text-xs">
@@ -1040,9 +1040,9 @@
 
     <!-- Edit Tax Invoice Modal (Only for Unsettled Invoices) -->
     <template x-teleport="body">
-        <div x-show="isEditModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isEditModalOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-xl overflow-hidden max-h-[90vh] flex flex-col" x-data="editInvoiceForm()">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isEditModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isEditModalOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-xl overflow-hidden max-h-[90vh] flex flex-col" x-data="editInvoiceForm()">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center font-bold text-sm">
                             ✏️
@@ -1135,9 +1135,9 @@
 
     <!-- Payment Receipt Modal -->
     <template x-teleport="body">
-        <div x-show="isNewReceiptOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isNewReceiptOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden flex flex-col" x-data="receiptModalForm()">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isNewReceiptOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isNewReceiptOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[92vh]" x-data="receiptModalForm()">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center font-bold text-sm">
                             💰
@@ -1159,7 +1159,7 @@
                         <p class="text-neutral-500">There are no outstanding invoices awaiting payment.</p>
                     </div>
                 @else
-                    <form action="{{ route('invoices.receipt') }}" method="POST" class="p-5 space-y-3 text-xs">
+                    <form action="{{ route('invoices.receipt') }}" method="POST" class="p-4 sm:p-5 space-y-3 text-xs overflow-y-auto flex-1">
                         @csrf
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Select Invoice to Settle *</label>
@@ -1172,7 +1172,7 @@
                             </select>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <div class="flex items-center justify-between mb-1">
                                     <label class="block font-bold text-neutral-700">Amount Received (₹) *</label>
@@ -1200,7 +1200,7 @@
                             <span>⚠️ Amount received exceeds the invoice balance of ₹<span x-text="Number(currentBalance).toLocaleString('en-IN')"></span>.</span>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label class="block font-bold text-neutral-700 mb-1">Payment Mode *</label>
                                 <select name="payment_mode" class="w-full px-3 py-2 border border-neutral-200 bg-white rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">

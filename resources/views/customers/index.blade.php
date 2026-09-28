@@ -6,7 +6,7 @@
 <div class="space-y-6" x-data="{ isAddCustomerOpen: {{ session('requires_duplicate_confirmation') || $errors->any() ? 'true' : 'false' }} }">
 
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 lg:p-7 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 lg:p-7 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div>
             <div class="flex items-center gap-2 mb-1">
                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F6F8] text-neutral-600 border border-neutral-200/80 font-mono uppercase tracking-wider">Directory</span>
@@ -44,7 +44,7 @@
                 $pendingQty = $cust->total_pending_qty;
                 $fulfillPct = $cust->fulfillment_percentage;
             @endphp
-            <div class="bg-white rounded-3xl border border-neutral-200/80 p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:border-neutral-400 transition-all flex flex-col justify-between group">
+            <div class="bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/80 p-4 sm:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:border-neutral-400 transition-all flex flex-col justify-between group">
                 <div>
                     <!-- Card Top Header -->
                     <div class="flex items-start justify-between gap-3 mb-4">
@@ -78,7 +78,7 @@
                     </div>
 
                     <!-- Contact & Tax Info -->
-                    <div class="grid grid-cols-2 gap-2.5 p-3.5 bg-[#F5F6F8] rounded-2xl border border-neutral-200/60 text-xs text-neutral-600 mb-3.5">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3.5 bg-[#F5F6F8] rounded-2xl border border-neutral-200/60 text-xs text-neutral-600 mb-3.5">
                         <div>
                             <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Contact Person</span>
                             <span class="font-bold text-neutral-800">{{ $cust->primary_contact_person ?? 'Purchases Head' }}</span>
@@ -171,10 +171,10 @@
 
     <!-- Add Customer Modal -->
     <template x-teleport="body">
-        <div x-show="isAddCustomerOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isAddCustomerOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden flex flex-col text-xs">
+        <div x-show="isAddCustomerOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isAddCustomerOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden flex flex-col text-xs max-h-[92vh]">
                 <!-- Modal Header -->
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center text-lg font-bold">
                             🏢
@@ -187,9 +187,9 @@
                     <button @click="isAddCustomerOpen = false" class="text-neutral-400 hover:text-white p-1 rounded-lg text-sm cursor-pointer">✕</button>
                 </div>
 
-                <form action="{{ route('customers.store') }}" method="POST" class="p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
+                <form action="{{ route('customers.store') }}" method="POST" class="p-4 sm:p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
                     @csrf
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <div class="flex items-center justify-between mb-1">
                                 <label class="block font-bold text-neutral-700">Customer Code</label>
@@ -227,7 +227,7 @@
                         <input type="text" name="trade_name" value="{{ old('trade_name') }}" placeholder="e.g. Balaji Wafers" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl font-medium focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Primary Contact Person</label>
                             <input type="text" name="primary_contact_person" placeholder="e.g. Rajesh Shah" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
@@ -238,7 +238,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">City</label>
                             <input type="text" name="city" placeholder="e.g. Rajkot" value="{{ old('city') }}" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">

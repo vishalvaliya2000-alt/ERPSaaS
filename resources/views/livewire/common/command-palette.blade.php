@@ -16,12 +16,12 @@
 
     <!-- Modal Backdrop -->
     @if($isOpen)
-    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 p-4 animate-in fade-in duration-150"
+    <div class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-4 sm:pt-16 p-2 sm:p-4 animate-in fade-in duration-150"
          @click.self="$wire.close()">
-        <div class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-2xl overflow-hidden flex flex-col max-h-[80vh]">
+        <div class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[80vh]">
             
             <!-- Search Bar Header -->
-            <div class="p-4 border-b border-neutral-100 flex items-center gap-3 bg-[#F5F6F8]">
+            <div class="p-3.5 sm:p-4 border-b border-neutral-100 flex items-center gap-2.5 sm:gap-3 bg-[#F5F6F8]">
                 <svg class="w-5 h-5 text-neutral-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>

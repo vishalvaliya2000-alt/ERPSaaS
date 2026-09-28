@@ -6,7 +6,7 @@
 <div class="space-y-6 pb-12" x-data="ordersPageApp()">
 
     <!-- 1. EXECUTIVE HEADER & ACTIONS -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 lg:p-7 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 sm:p-6 lg:p-7 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div class="space-y-1">
             <div class="flex items-center gap-2 mb-1">
                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F6F8] text-neutral-600 border border-neutral-200/80 font-mono uppercase tracking-wider">Contracts</span>
@@ -134,7 +134,7 @@
     </div>
 
     <!-- 3. SEARCH, STATUS TABS & CUSTOMER FILTER -->
-    <div class="bg-white p-4 lg:p-5 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-3">
+    <div class="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-3">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <!-- Status Tabs -->
             <div class="flex flex-wrap items-center gap-1.5">
@@ -180,7 +180,7 @@
             </div>
 
             <!-- Search and Customer Filter -->
-            <div class="flex items-center gap-2 flex-1 max-w-md ml-auto">
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:max-w-md lg:ml-auto">
                 <div class="relative flex-1">
                     <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-400 text-xs">🔍</span>
                     <input
@@ -198,7 +198,7 @@
 
                 <select
                     x-model="customerFilter"
-                    class="px-4 py-2 border border-neutral-200/80 rounded-full text-xs bg-[#F5F6F8] focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#091315] font-medium max-w-[160px]"
+                    class="px-4 py-2 border border-neutral-200/80 rounded-full text-xs bg-[#F5F6F8] focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#091315] font-medium w-full sm:max-w-[160px]"
                 >
                     <option value="">All Clients</option>
                     @foreach($customers as $c)
@@ -234,7 +234,7 @@
                 x-transition:enter="transition ease-out duration-150"
                 x-transition:enter-start="opacity-0 transform scale-98"
                 x-transition:enter-end="opacity-100 transform scale-100"
-                class="bg-white rounded-3xl border border-neutral-200/80 hover:border-neutral-400 shadow-[0_2px_12px_rgba(0,0,0,0.02)] transition-all p-6 lg:p-7 space-y-4 relative overflow-hidden group"
+                class="bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/80 hover:border-neutral-400 shadow-[0_2px_12px_rgba(0,0,0,0.02)] transition-all p-4 sm:p-6 lg:p-7 space-y-4 relative overflow-hidden group"
             >
                 <!-- TOP CONTRACT BADGE & CLIENT HEADER -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-100 pb-4">
@@ -556,9 +556,9 @@
 
     <!-- 5. MULTI-ITEM CREATE SALES ORDER MODAL -->
     <template x-teleport="body">
-        <div x-show="isNewOrderOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isNewOrderOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-3xl overflow-hidden max-h-[92vh] flex flex-col text-xs">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isNewOrderOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isNewOrderOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-3xl overflow-hidden max-h-[92vh] flex flex-col text-xs">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center text-lg font-bold">
                             📑
@@ -571,7 +571,7 @@
                     <button @click="isNewOrderOpen = false" class="text-neutral-400 hover:text-white cursor-pointer">✕</button>
                 </div>
 
-                <form action="{{ route('orders.store') }}" method="POST" enctype="multipart/form-data" class="p-5 space-y-4 text-xs overflow-y-auto flex-1" x-data="{ selectedPoFile: null }">
+                <form action="{{ route('orders.store') }}" method="POST" enctype="multipart/form-data" class="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1" x-data="{ selectedPoFile: null }">
                     @csrf
 
                     <!-- Customer & PO Number -->
@@ -646,8 +646,8 @@
                                         ✕
                                     </button>
 
-                                    <div class="grid grid-cols-12 gap-2.5 items-end pr-5">
-                                        <div class="col-span-6 sm:col-span-5">
+                                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end pr-0 sm:pr-5">
+                                        <div class="sm:col-span-5">
                                             <label class="block font-bold text-neutral-700 mb-1 text-[11px]" x-text="'Item #' + (idx + 1) + ' Product Cut *'"></label>
                                             <select :name="'items[' + idx + '][product_id]'" x-model="item.product_id" @change="onProductSelect(item, $event)" class="w-full px-2.5 py-1.5 border border-neutral-300 rounded-xl font-medium text-xs bg-white focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
                                                 @foreach($products as $p)
@@ -655,11 +655,11 @@
                                                 @endforeach
                                             </select>
                                         </div>
-                                        <div class="col-span-3 sm:col-span-3">
+                                        <div class="sm:col-span-3">
                                             <label class="block font-bold text-neutral-700 mb-1 text-[11px]">Order Qty (KG) *</label>
                                             <input type="number" step="1" min="1" :name="'items[' + idx + '][order_qty]'" x-model="item.order_qty" placeholder="e.g. 5000" class="w-full px-2.5 py-1.5 border border-neutral-300 rounded-xl font-bold text-xs bg-white text-right focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
                                         </div>
-                                        <div class="col-span-3 sm:col-span-4">
+                                        <div class="sm:col-span-4">
                                             <label class="block font-bold text-neutral-700 mb-1 text-[11px]">Agreed Rate / KG (₹) *</label>
                                             <input type="number" step="0.5" min="1" :name="'items[' + idx + '][rate]'" x-model="item.rate" placeholder="120" class="w-full px-2.5 py-1.5 border border-neutral-300 rounded-xl font-bold text-xs bg-white text-right focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
                                         </div>
@@ -738,9 +738,9 @@
 
     <!-- 6. MULTI-ITEM EDIT SALES ORDER MODAL -->
     <template x-teleport="body">
-        <div x-show="isEditOrderOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isEditOrderOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-3xl overflow-hidden max-h-[92vh] flex flex-col text-xs">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isEditOrderOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isEditOrderOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-3xl overflow-hidden max-h-[92vh] flex flex-col text-xs">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center text-lg font-bold">
                             ✏️
@@ -816,8 +816,8 @@
                             <template x-for="(item, idx) in editItems" :key="idx">
                                 <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 relative">
                                     <input type="hidden" :name="'items[' + idx + '][id]'" :value="item.id || ''">
-                                    <div class="grid grid-cols-12 gap-2.5 items-end pr-5">
-                                        <div class="col-span-6 sm:col-span-5">
+                                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end pr-0 sm:pr-5">
+                                        <div class="sm:col-span-5">
                                             <label class="block font-bold text-slate-700 mb-1 text-[11px]" x-text="'Item #' + (idx + 1) + ' Product Cut'"></label>
                                             <select :name="'items[' + idx + '][product_id]'" x-model="item.product_id" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-medium text-xs bg-white" required>
                                                 @foreach($products as $p)
@@ -825,11 +825,11 @@
                                                 @endforeach
                                             </select>
                                         </div>
-                                        <div class="col-span-3 sm:col-span-3">
+                                        <div class="sm:col-span-3">
                                             <label class="block font-bold text-slate-700 mb-1 text-[11px]">Order Qty (KG) *</label>
                                             <input type="number" step="1" :name="'items[' + idx + '][order_qty]'" x-model="item.order_qty" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-bold text-xs bg-white text-right" required>
                                         </div>
-                                        <div class="col-span-3 sm:col-span-4">
+                                        <div class="sm:col-span-4">
                                             <label class="block font-bold text-slate-700 mb-1 text-[11px]">Rate / KG (₹) *</label>
                                             <input type="number" step="0.5" :name="'items[' + idx + '][rate]'" x-model="item.rate" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-bold text-xs bg-white text-right" required>
                                         </div>
@@ -919,9 +919,9 @@
 
     <!-- 7. WHATSAPP PO STATUS DRAWER -->
     <template x-teleport="body">
-        <div x-show="isWhatsAppOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isWhatsAppOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden text-xs flex flex-col">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isWhatsAppOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isWhatsAppOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden text-xs flex flex-col max-h-[92vh]">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <span class="text-lg">💬</span>
                         <div>
@@ -973,10 +973,10 @@
 
     <!-- 8. REVISION HISTORY & AUDIT DIFF MODAL -->
     <template x-teleport="body">
-        <div x-show="isRevisionModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isRevisionModalOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-4xl overflow-hidden max-h-[92vh] flex flex-col text-xs">
+        <div x-show="isRevisionModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isRevisionModalOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-4xl overflow-hidden max-h-[92vh] flex flex-col text-xs">
                 <!-- Modal Header -->
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center text-lg font-bold">
                             🕒
@@ -1145,10 +1145,10 @@
 
     <!-- 8. RECORD ADVANCE PAYMENT MODAL -->
     <template x-teleport="body">
-        <div x-show="isRecordAdvanceOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isRecordAdvanceOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden flex flex-col text-xs">
+        <div x-show="isRecordAdvanceOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isRecordAdvanceOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden flex flex-col text-xs max-h-[92vh]">
                 <!-- Modal Header -->
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center text-lg font-bold font-display">
                             ₹
@@ -1162,11 +1162,11 @@
                 </div>
 
                 <!-- Form -->
-                <form :action="'/orders/' + advanceOrder.id + '/advance'" method="POST" class="p-5 space-y-4 text-xs overflow-y-auto flex-1">
+                <form :action="'/orders/' + advanceOrder.id + '/advance'" method="POST" class="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1">
                     @csrf
 
                     <!-- PO Financial Context Card -->
-                    <div class="p-3.5 bg-[#F5F6F8] rounded-2xl border border-neutral-200/60 grid grid-cols-3 gap-2 text-center">
+                    <div class="p-3.5 bg-[#F5F6F8] rounded-2xl border border-neutral-200/60 grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
                         <div class="bg-white p-2.5 rounded-xl border border-neutral-200/80">
                             <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Contract Total</span>
                             <p class="font-black text-xs text-neutral-900 font-display mt-0.5" x-text="'₹' + Number(advanceOrder.total_amount || 0).toLocaleString('en-IN')"></p>

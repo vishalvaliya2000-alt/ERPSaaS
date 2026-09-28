@@ -5,7 +5,7 @@
 @section('content')
 <div class="space-y-6 pb-12" x-data="shipmentsPageApp()">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 lg:p-7 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 lg:p-7 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div>
             <div class="flex items-center gap-2 mb-1">
                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F6F8] text-neutral-600 border border-neutral-200/80 font-mono uppercase tracking-wider">Logistics</span>
@@ -37,7 +37,7 @@
     </div>
 
     <!-- Rule Alert Banner -->
-    <div class="bg-[#F3FED4]/60 border border-[#D7FF53] rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-neutral-900">
+    <div class="bg-[#F3FED4]/60 border border-[#D7FF53] rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-neutral-900">
         <div class="flex items-center gap-3">
             <span class="text-xl">🚚</span>
             <div>
@@ -51,7 +51,7 @@
     </div>
 
     <!-- View Mode Switcher, Status Filters & Quick Search Toolbar -->
-    <div class="bg-white p-4 lg:p-5 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <!-- Status Filter Pills -->
         <div class="flex items-center gap-1.5 flex-wrap">
             <button
@@ -529,9 +529,9 @@
 
     <!-- Create Shipment Modal (Multi-PO, Freight Type & LR Upload Support) -->
     <template x-teleport="body">
-        <div x-show="isNewShipmentOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isNewShipmentOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col text-xs">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isNewShipmentOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isNewShipmentOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-3xl overflow-hidden max-h-[92vh] flex flex-col text-xs">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center text-lg font-bold">
                             🚚
@@ -560,11 +560,11 @@
                     </div>
                 </div>
             @else
-                <form action="{{ route('shipments.store') }}" method="POST" enctype="multipart/form-data" class="p-5 space-y-4 text-xs overflow-y-auto flex-1" x-data="{ selectedLrFile: null }">
+                <form action="{{ route('shipments.store') }}" method="POST" enctype="multipart/form-data" class="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1" x-data="{ selectedLrFile: null }">
                     @csrf
 
                     <!-- Transporter Details -->
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-slate-700 mb-1">Transporter *</label>
                             <div class="relative">
@@ -582,7 +582,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="block font-bold text-slate-700 mb-1">Dispatch Date *</label>
                             <input type="date" name="shipment_date" value="{{ date('Y-m-d') }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg" required>
@@ -604,7 +604,7 @@
                             <span class="text-[11px] text-slate-500 font-semibold">Who pays the transporter freight?</span>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <label class="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all" :class="freightPaymentType === 'TO_PAY' ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-400/20' : 'bg-white border-slate-200'">
                                 <input type="radio" name="freight_payment_type" value="TO_PAY" x-model="freightPaymentType" class="text-amber-600">
                                 <div>
@@ -689,8 +689,8 @@
                         <div class="space-y-2.5">
                             <template x-for="(item, idx) in newShipmentItems" :key="idx">
                                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 relative">
-                                    <div class="grid grid-cols-12 gap-2.5 items-end">
-                                        <div class="col-span-8">
+                                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+                                        <div class="sm:col-span-8">
                                             <label class="block font-bold text-slate-700 mb-1" x-text="'Item #' + (idx + 1) + ' — Select PO & Product Cut'"></label>
                                             <select
                                                 :name="'items[' + idx + '][sales_order_item_id]'"
@@ -707,7 +707,7 @@
                                             </select>
                                         </div>
 
-                                        <div class="col-span-3">
+                                        <div class="sm:col-span-3">
                                             <div class="flex items-center justify-between mb-1">
                                                 <label class="block font-bold text-slate-700">Dispatch Qty (KG) *</label>
                                                 <span class="text-[10px] text-amber-700 font-bold" x-text="'Max: ' + (item.maxBalance || 0)"></span>
@@ -724,7 +724,7 @@
                                             >
                                         </div>
 
-                                        <div class="col-span-1 flex justify-center pb-2">
+                                        <div class="sm:col-span-1 flex justify-end sm:justify-center pb-2">
                                             <button
                                                 type="button"
                                                 x-show="newShipmentItems.length > 1"
@@ -795,9 +795,9 @@
 
     <!-- Edit Shipment Modal -->
     <template x-teleport="body">
-        <div x-show="isEditModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isEditModalOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden flex flex-col">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isEditModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isEditModalOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[92vh]">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center font-bold text-sm">
                             🚚
@@ -810,9 +810,9 @@
                     <button @click="isEditModalOpen = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors">✕</button>
                 </div>
 
-            <form :action="'/shipments/' + editShipment.id + '/update'" method="POST" enctype="multipart/form-data" class="p-5 space-y-3 text-xs">
+            <form :action="'/shipments/' + editShipment.id + '/update'" method="POST" enctype="multipart/form-data" class="p-4 sm:p-5 space-y-3 text-xs overflow-y-auto flex-1">
                 @csrf
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block font-bold text-neutral-700 mb-1">Transporter *</label>
                         <input type="text" name="transporter" x-model="editShipment.transporter" class="w-full px-3 py-2 border border-neutral-200 rounded-xl font-bold focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
@@ -824,7 +824,7 @@
                 </div>
 
                 <!-- Freight Mode in Edit -->
-                <div class="grid grid-cols-2 gap-3 p-3 bg-[#F5F6F8] rounded-2xl border border-neutral-200/80">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-[#F5F6F8] rounded-2xl border border-neutral-200/80">
                     <div>
                         <label class="block font-bold text-neutral-700 mb-1">Freight Mode *</label>
                         <select name="freight_payment_type" x-model="editShipment.freight_payment_type" class="w-full px-3 py-2 border border-neutral-200 bg-white rounded-xl font-bold focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
@@ -838,7 +838,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block font-bold text-neutral-700 mb-1">Dispatch Date *</label>
                         <input type="date" name="shipment_date" x-model="editShipmentDate" class="w-full px-3 py-2 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>

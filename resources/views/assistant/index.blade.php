@@ -5,42 +5,42 @@
 @section('content')
 <div class="max-w-4xl mx-auto space-y-6" x-data="assistantChatApp()">
     <!-- Header -->
-    <div class="bg-[#0a0a0a] text-white p-6 rounded-2xl border border-neutral-800 shadow-xl flex items-center justify-between">
+    <div class="bg-[#0a0a0a] text-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-800 shadow-xl flex items-center justify-between gap-3">
         <div class="flex items-center gap-3.5">
-            <div class="w-12 h-12 rounded-2xl bg-[#f53003] text-white font-black text-xl flex items-center justify-center shadow-md">
+            <div class="w-10 sm:w-12 h-10 sm:h-12 rounded-2xl bg-[#f53003] text-white font-black text-xl flex items-center justify-center shadow-md shrink-0">
                 ⚡
             </div>
             <div>
-                <h2 class="text-xl font-black text-white">{{ $currentTenant->name ?? config('app.name', 'Vyapar ERP') }} AI Assistant</h2>
+                <h2 class="text-lg sm:text-xl font-black text-white">{{ $currentTenant->name ?? config('app.name', 'Vyapar ERP') }} AI Assistant</h2>
                 <p class="text-xs text-neutral-400">Ask anything about your customers, open orders, overdue invoices, stock balances, or courier tracking.</p>
             </div>
         </div>
 
-        <span class="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20 flex items-center gap-2">
+        <span class="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 sm:px-3 py-1.5 rounded-full border border-emerald-500/20 flex items-center gap-1.5 sm:gap-2 shrink-0">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             Online
         </span>
     </div>
 
     <!-- Suggested Quick Prompts -->
-    <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+    <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs touch-scroll">
         <span class="text-slate-400 font-bold text-[11px] shrink-0">Try asking:</span>
-        <button @click="askQuery('What is the outstanding for Monk Foods?')" class="px-3 py-1.5 rounded-full bg-white hover:bg-amber-50 text-slate-700 font-bold border border-slate-200 shadow-2xs shrink-0">
+        <button @click="askQuery('What is the outstanding for Monk Foods?')" class="px-3 py-1.5 rounded-full bg-white hover:bg-amber-50 text-slate-700 font-bold border border-slate-200 shadow-2xs shrink-0 cursor-pointer">
             💳 Monk Foods Outstanding
         </button>
-        <button @click="askQuery('Which shipments and LRs are in transit?')" class="px-3 py-1.5 rounded-full bg-white hover:bg-amber-50 text-slate-700 font-bold border border-slate-200 shadow-2xs shrink-0">
+        <button @click="askQuery('Which shipments and LRs are in transit?')" class="px-3 py-1.5 rounded-full bg-white hover:bg-amber-50 text-slate-700 font-bold border border-slate-200 shadow-2xs shrink-0 cursor-pointer">
             🚚 Freight Carrier & DTDC In-Transit
         </button>
-        <button @click="askQuery('What is our garlic stock available?')" class="px-3 py-1.5 rounded-full bg-white hover:bg-amber-50 text-slate-700 font-bold border border-slate-200 shadow-2xs shrink-0">
+        <button @click="askQuery('What is our garlic stock available?')" class="px-3 py-1.5 rounded-full bg-white hover:bg-amber-50 text-slate-700 font-bold border border-slate-200 shadow-2xs shrink-0 cursor-pointer">
             📦 Garlic Inventory Stock
         </button>
-        <button @click="askQuery('Who should I follow up with today?')" class="px-3 py-1.5 rounded-full bg-white hover:bg-amber-50 text-slate-700 font-bold border border-slate-200 shadow-2xs shrink-0">
+        <button @click="askQuery('Who should I follow up with today?')" class="px-3 py-1.5 rounded-full bg-white hover:bg-amber-50 text-slate-700 font-bold border border-slate-200 shadow-2xs shrink-0 cursor-pointer">
             🎯 Today's Priority Follow-ups
         </button>
     </div>
 
     <!-- Chat Messages Container -->
-    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs min-h-[420px] flex flex-col justify-between space-y-4">
+    <div class="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-4 sm:p-6 shadow-xs min-h-[420px] flex flex-col justify-between space-y-4">
         <div class="space-y-4 overflow-y-auto max-h-[500px] p-1" x-ref="messagesBox">
             <!-- Initial Welcome Message -->
             <div class="flex items-start gap-3">

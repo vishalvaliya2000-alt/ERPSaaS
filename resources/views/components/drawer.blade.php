@@ -38,7 +38,7 @@
         class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
     ></div>
 
-    <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
+    <div class="fixed inset-y-0 right-0 max-w-full flex pl-4 sm:pl-10">
         <div
             x-show="{{ $name }}"
             x-transition:enter="transform transition ease-in-out duration-300 sm:duration-400"
@@ -51,7 +51,7 @@
             class="w-screen {{ $maxWidthClass }} bg-white shadow-2xl flex flex-col border-l border-neutral-200/80"
         >
             <!-- Header -->
-            <div class="bg-[#091315] px-6 py-5 border-b border-neutral-800 text-white flex items-center justify-between">
+            <div class="bg-[#091315] px-4 sm:px-6 py-4 sm:py-5 border-b border-neutral-800 text-white flex items-center justify-between shrink-0">
                 <div class="flex items-center gap-3">
                     @if ($icon)
                         <div class="w-10 h-10 rounded-2xl bg-[#112225] border border-neutral-700/60 text-[#D7FF53] flex items-center justify-center text-lg shrink-0">
@@ -80,13 +80,13 @@
             </div>
 
             <!-- Body -->
-            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 touch-scroll">
                 {{ $slot }}
             </div>
 
             @if (isset($footer))
                 <!-- Footer -->
-                <div class="px-6 py-4 bg-[#F5F6F8] border-t border-neutral-200/80 flex items-center justify-end gap-3">
+                <div class="px-4 sm:px-6 py-3 sm:py-4 bg-[#F5F6F8] border-t border-neutral-200/80 flex items-center justify-end gap-2 sm:gap-3 shrink-0">
                     {{ $footer }}
                 </div>
             @endif

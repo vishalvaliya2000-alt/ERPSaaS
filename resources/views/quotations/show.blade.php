@@ -5,11 +5,11 @@
 @section('content')
 <div class="space-y-6 max-w-4xl mx-auto">
     <!-- Breadcrumb & Header -->
-    <div class="flex items-center justify-between gap-4">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <a href="{{ route('quotations.index') }}" class="text-xs font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1">
             ← Back to Quotations
         </a>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
             @if($quotation->status !== 'ACCEPTED')
             <form action="{{ route('quotations.convert', $quotation->id) }}" method="POST" class="inline">
                 @csrf
@@ -18,13 +18,13 @@
                 </button>
             </form>
             @endif
-            <button onclick="window.print()" class="px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs">
+            <button onclick="window.print()" class="px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs cursor-pointer">
                 🖨️ Print / Save PDF
             </button>
             <a
                 href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $quotation->recipient_phone ?: '919825088990') }}?text={{ urlencode('Hi ' . ($quotation->recipient_name ?: 'Sir') . ', please find attached formal quotation ' . $quotation->quotation_number . ' from ' . ($currentTenant->name ?? config('app.name', 'ERPSaaS')) . ' for total ' . formatINR($quotation->total_amount) . '. Looking forward to your purchase order confirmation.') }}"
                 target="_blank"
-                class="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs"
+                class="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs cursor-pointer"
             >
                 💬 Share on WhatsApp
             </a>
@@ -32,11 +32,11 @@
     </div>
 
     <!-- Formal Printable Quotation Sheet -->
-    <div class="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm space-y-6 print:border-none print:shadow-none">
+    <div class="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-4 sm:p-8 shadow-sm space-y-6 print:border-none print:shadow-none">
         <!-- Letterhead -->
-        <div class="flex items-start justify-between border-b border-slate-200 pb-6">
+        <div class="flex flex-col sm:flex-row items-start justify-between gap-4 border-b border-slate-200 pb-6">
             <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xl">
+                <div class="w-12 h-12 rounded-xl bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xl shrink-0">
                     {{ substr($currentTenant->name ?? 'CO', 0, 2) }}
                 </div>
                 <div>
@@ -47,8 +47,8 @@
                 </div>
             </div>
 
-            <div class="text-right">
-                <span class="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full uppercase border border-amber-200 block mb-1">
+            <div class="sm:text-right w-full sm:w-auto">
+                <span class="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full uppercase border border-amber-200 inline-block sm:block mb-1">
                     Commercial Quotation
                 </span>
                 <p class="font-mono font-bold text-sm text-slate-900">{{ $quotation->quotation_number }}</p>
@@ -66,7 +66,7 @@
         </div>
 
         <!-- Line Items Table -->
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto touch-scroll -mx-2 sm:mx-0">
             <table class="w-full text-left text-xs border-collapse">
                 <thead>
                     <tr class="bg-slate-100 text-slate-700 border-y border-slate-200">
@@ -98,7 +98,7 @@
 
         <!-- Totals & Calculations -->
         <div class="flex justify-end pt-2">
-            <div class="w-72 space-y-1.5 text-xs text-right border-t border-slate-200 pt-3">
+            <div class="w-full sm:w-72 space-y-1.5 text-xs text-right border-t border-slate-200 pt-3">
                 <div class="flex justify-between text-slate-600">
                     <span>Subtotal:</span>
                     <span class="font-bold text-slate-900">{{ formatINR($quotation->subtotal) }}</span>

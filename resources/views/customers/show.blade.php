@@ -15,7 +15,7 @@
     </div>
 
     @php $health = getHealthBadge($customer->health_score); @endphp
-    <div class="bg-white rounded-3xl border border-neutral-200/80 p-6 lg:p-7 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+    <div class="bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/80 p-4 sm:p-6 lg:p-7 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div class="flex items-start gap-4">
                 <div class="w-16 h-16 rounded-2xl bg-[#091315] text-[#D7FF53] font-black text-2xl flex items-center justify-center shadow-xs shrink-0 border border-neutral-800 font-display">
@@ -110,7 +110,7 @@
 
     <!-- AI Insights Banner -->
     @if($customer->aiInsights->count() > 0)
-        <div class="bg-[#F3FED4]/60 border border-[#D7FF53] rounded-3xl p-6 shadow-xs">
+        <div class="bg-[#F3FED4]/60 border border-[#D7FF53] rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs">
             <h3 class="font-extrabold text-xs text-[#091315] uppercase tracking-wider mb-3 font-display flex items-center gap-1.5">
                 <span>⚡</span>
                 <span>AI Sales & Opportunity Recommendations</span>
@@ -136,7 +136,7 @@
     @endif
 
     <!-- Profile Tabs -->
-    <div class="flex items-center gap-1.5 p-1.5 bg-[#F5F6F8] rounded-full border border-neutral-200/80 overflow-x-auto w-fit">
+    <div class="flex items-center gap-1.5 p-1.5 bg-[#F5F6F8] rounded-full border border-neutral-200/80 overflow-x-auto touch-scroll max-w-full">
         <button @click="tab = 'overview'" :class="tab === 'overview' ? 'bg-[#091315] text-[#D7FF53] shadow-xs' : 'text-neutral-600 hover:text-neutral-900'" class="px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap cursor-pointer transition-all font-display">
             Overview & Contacts
         </button>
@@ -720,9 +720,9 @@
 
     <!-- WhatsApp Dialog -->
     <template x-teleport="body">
-        <div x-show="whatsappOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="whatsappOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden text-xs flex flex-col">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="whatsappOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="whatsappOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg max-h-[92vh] overflow-hidden text-xs flex flex-col">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <span class="text-lg">💬</span>
                         <div>
@@ -732,7 +732,7 @@
                     </div>
                     <button @click="whatsappOpen = false" class="text-neutral-400 hover:text-white cursor-pointer">✕</button>
                 </div>
-                <div class="p-5 space-y-4 text-xs">
+                <div class="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1 touch-scroll">
                     <div class="p-3 bg-[#F5F6F8] rounded-2xl border border-neutral-200/80 text-neutral-800">
                         <span class="font-bold">Context:</span> Outstanding <span class="font-bold text-neutral-900">{{ formatINR($customer->outstanding_amount) }}</span>
                     </div>
@@ -755,9 +755,9 @@
 
     <!-- Generate Quotation Modal -->
     <template x-teleport="body">
-        <div x-show="isQuoteModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isQuoteModalOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-2xl overflow-hidden text-xs flex flex-col max-h-[90vh]">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isQuoteModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isQuoteModalOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-2xl overflow-hidden text-xs flex flex-col max-h-[92vh]">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <span class="text-lg">📄</span>
                         <div>
@@ -768,7 +768,7 @@
                     <button @click="isQuoteModalOpen = false" class="text-neutral-400 hover:text-white text-base cursor-pointer">✕</button>
                 </div>
 
-                <form action="{{ route('quotations.store') }}" method="POST" class="p-6 space-y-4 overflow-y-auto flex-1" x-data="{ items: [{ product_id: '{{ $products->first()?->id ?? 1 }}', quantity: 5000, rate: 280, packaging: '25 KG Bag / Carton' }] }">
+                <form action="{{ route('quotations.store') }}" method="POST" class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 touch-scroll" x-data="{ items: [{ product_id: '{{ $products->first()?->id ?? 1 }}', quantity: 5000, rate: 280, packaging: '25 KG Bag / Carton' }] }">
                     @csrf
                     <input type="hidden" name="recipient_company" value="{{ $customer->company_name }}">
                     <input type="hidden" name="recipient_name" value="{{ $customer->primary_contact_person }}">
@@ -844,9 +844,9 @@
 
     <!-- Dispatch Sample Modal -->
     <template x-teleport="body">
-        <div x-show="isSampleModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isSampleModalOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden text-xs flex flex-col max-h-[90vh]">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isSampleModalOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isSampleModalOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden text-xs flex flex-col max-h-[92vh]">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <span class="text-lg">🧪</span>
                         <div>
@@ -857,7 +857,7 @@
                     <button @click="isSampleModalOpen = false" class="text-neutral-400 hover:text-white text-base cursor-pointer">✕</button>
                 </div>
 
-                <form action="{{ route('samples.store') }}" method="POST" class="p-6 space-y-4 overflow-y-auto flex-1">
+                <form action="{{ route('samples.store') }}" method="POST" class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 touch-scroll">
                     @csrf
                     <input type="hidden" name="customer_id" value="{{ $customer->id }}">
                     <input type="hidden" name="recipient_name" value="{{ $customer->primary_contact_person }}">
@@ -871,7 +871,7 @@
                         </select>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Quantity</label>
                             <input type="number" step="0.1" name="quantity" value="0.5" class="w-full px-3 py-2 border border-neutral-300 rounded-xl font-bold focus:ring-2 focus:ring-[#091315]" required>
@@ -885,7 +885,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Courier Partner</label>
                             <select name="courier_provider" class="w-full px-3 py-2 border border-neutral-300 rounded-xl bg-white focus:ring-2 focus:ring-[#091315]">

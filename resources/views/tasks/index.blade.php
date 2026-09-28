@@ -5,7 +5,7 @@
 @section('content')
 <div class="space-y-6" x-data="tasksPageApp()">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-neutral-200/80 shadow-xs">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-xs">
         <div>
             <h2 class="text-xl font-black text-neutral-900">Follow-up & Task Engine</h2>
             <p class="text-xs text-neutral-500 mt-1">
@@ -22,8 +22,9 @@
             </div>
 
             <button
-                @click="isNewTaskOpen = true"
+                @click="isQuickAddOpen = true; quickAddTab = 'task'"
                 class="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-[#f53003] hover:bg-[#c42602] shadow-xs transition-colors cursor-pointer"
+            >
                 + New Follow-up Task
             </button>
         </div>
@@ -37,7 +38,7 @@
                 $rel = formatRelativeDate($t->due_date);
                 $customerName = $t->customer->company_name ?? $t->lead->company_name ?? 'General Task';
             @endphp
-            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div class="space-y-2 flex-1">
                     <div class="flex items-center gap-2.5 flex-wrap">
                         <span class="font-bold text-sm text-slate-900">{{ $customerName }}</span>
@@ -53,11 +54,11 @@
                         <b>Reason / Context:</b> {{ $t->reason }}
                     </p>
 
-                    <div class="p-2.5 bg-amber-50/70 rounded-xl border border-amber-200/80 text-xs flex items-center justify-between">
+                    <div class="p-2.5 bg-amber-50/70 rounded-xl border border-amber-200/80 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                         <span class="text-amber-950 font-semibold">
                             👉 <b>Next Action:</b> {{ $t->next_action }}
                         </span>
-                        <span class="text-[11px] font-bold {{ $rel['isOverdue'] ? 'text-rose-600' : 'text-amber-800' }}">
+                        <span class="text-[11px] font-bold shrink-0 {{ $rel['isOverdue'] ? 'text-rose-600' : 'text-amber-800' }}">
                             Due: {{ $rel['text'] }} ({{ $t->due_date->format('d M') }})
                         </span>
                     </div>
@@ -70,7 +71,7 @@
                 </div>
 
                 @if($t->status === 'PENDING')
-                    <div class="flex items-center gap-2 shrink-0">
+                    <div class="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
                         @if($t->customer && $t->customer->primary_phone)
                             <a
                                 href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $t->customer->primary_phone) }}?text={{ urlencode('Hi ' . ($t->customer->primary_contact_person ?: 'Sir') . ', this is ' . ($currentUser?->first_name ?? 'our team') . ' from ' . ($currentTenant->name ?? config('app.name', 'ERPSaaS')) . '. Following up regarding ' . $t->reason . '.') }}"
@@ -84,7 +85,7 @@
                         <button
                             type="button"
                             @click="openCompleteModal({{ $t->id }}, '{{ addslashes($customerName) }}', '{{ addslashes($t->reason) }}')"
-                            class="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 shadow-xs"
+                            class="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 shadow-xs cursor-pointer"
                         >
                             ✓ Complete Task
                         </button>
@@ -96,7 +97,7 @@
                 @endif
             </div>
         @empty
-            <div class="bg-white p-12 text-center rounded-2xl border border-slate-200 text-xs text-slate-400">
+            <div class="bg-white p-12 text-center rounded-2xl sm:rounded-3xl border border-slate-200 text-xs text-slate-400">
                 No tasks found in this view.
             </div>
         @endforelse
@@ -104,9 +105,9 @@
 
     <!-- Complete Task Modal -->
     <template x-teleport="body">
-        <div x-show="isCompleteOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div @click.outside="isCompleteOpen = false" class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden flex flex-col">
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+        <div x-show="isCompleteOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isCompleteOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center font-bold text-sm">
                             ✓
@@ -116,9 +117,9 @@
                             <p class="text-[11px] text-[#D7FF53] font-mono">Log Outcome & Pipeline Continuity</p>
                         </div>
                     </div>
-                    <button @click="isCompleteOpen = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors">✕</button>
+                    <button @click="isCompleteOpen = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors p-1">✕</button>
                 </div>
-                <form :action="'/tasks/' + currentTaskId + '/complete'" method="POST" class="p-5 space-y-4">
+                <form :action="'/tasks/' + currentTaskId + '/complete'" method="POST" class="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 touch-scroll">
                     @csrf
                     <div class="p-3.5 bg-[#F5F6F8] rounded-2xl border border-neutral-200/80 text-xs text-neutral-800">
                         <span class="font-bold block mb-0.5 text-neutral-900" x-text="currentCustomerName"></span>
@@ -140,7 +141,7 @@
                                 <label class="block font-bold text-neutral-700 mb-1">Next Action</label>
                                 <input type="text" name="next_action" placeholder="e.g. Send proforma quotation" class="w-full px-3 py-2 border border-neutral-200 bg-white rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
                             </div>
-                            <div class="grid grid-cols-2 gap-3">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block font-bold text-neutral-700 mb-1">Due Date</label>
                                     <input type="date" name="next_due_date" value="{{ date('Y-m-d', strtotime('+3 days')) }}" class="w-full px-3 py-2 border border-neutral-200 bg-white rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">

@@ -5,7 +5,7 @@
 @section('content')
 <div class="space-y-6 pb-12" x-data="{ isSaving: false }">
     <!-- Header -->
-    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div class="flex items-center gap-4">
             @if(!empty($tenant?->logo_url))
                 <div class="w-14 h-14 rounded-2xl bg-white p-1.5 flex items-center justify-center border border-slate-200 shadow-md shrink-0 overflow-hidden">
@@ -17,8 +17,8 @@
                 </div>
             @endif
             <div>
-                <div class="flex items-center gap-2">
-                    <h1 class="text-2xl font-black text-slate-900">{{ $tenant?->name ?? 'Organization Settings' }}</h1>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h1 class="text-xl sm:text-2xl font-black text-slate-900">{{ $tenant?->name ?? 'Organization Settings' }}</h1>
                     <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                         {{ $tenant?->plan ?? 'Standard' }}
                     </span>
@@ -32,7 +32,7 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 shrink-0">
             <a href="{{ route('organization.team') }}" class="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all">
                 👥 Manage Team ({{ $tenant?->users()->count() ?? 0 }})
             </a>
@@ -44,7 +44,7 @@
         @csrf
 
         <!-- 1. Organization Identity & Compliance -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        <div class="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs space-y-4">
             <div class="border-b border-slate-100 pb-3">
                 <h2 class="text-base font-bold text-slate-900">🏢 Organization Identity & Compliance</h2>
                 <p class="text-xs text-slate-500">Legal entity name, industry vertical, and primary contact details</p>
@@ -82,7 +82,7 @@
         </div>
 
         <!-- 2. Address & Plant Location -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        <div class="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs space-y-4">
             <div class="border-b border-slate-100 pb-3">
                 <h2 class="text-base font-bold text-slate-900">📍 Registered Office / Plant Location</h2>
                 <p class="text-xs text-slate-500">Printed on official Tax Invoices, Quotations, and LR Consignments</p>
@@ -113,7 +113,7 @@
         </div>
 
         <!-- 3. Tax & Export Compliance -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        <div class="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs space-y-4">
             <div class="border-b border-slate-100 pb-3">
                 <h2 class="text-base font-bold text-slate-900">📑 Tax & Export Trade Compliance</h2>
                 <p class="text-xs text-slate-500">GSTIN, Import-Export Code (IEC), LUT / ARN, and Food Safety Licenses</p>
@@ -154,7 +154,7 @@
         </div>
 
         <!-- 4. Bank Account & Settlement Details -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        <div class="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs space-y-4">
             <div class="border-b border-slate-100 pb-3">
                 <h2 class="text-base font-bold text-slate-900">🏦 Banking & Settlement Accounts</h2>
                 <p class="text-xs text-slate-500">Printed on Invoices for RTGS / NEFT / Wire Transfer Settlements</p>
@@ -188,13 +188,13 @@
         </div>
 
         <!-- 5. Currency & Document Numbering Prefixes -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        <div class="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs space-y-4">
             <div class="border-b border-slate-100 pb-3">
                 <h2 class="text-base font-bold text-slate-900">🔢 Currency & Document Prefixes</h2>
                 <p class="text-xs text-slate-500">Auto-numbering rules for Invoices, Quotations, and Sales Orders</p>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Currency Code</label>
                     <input type="text" name="currency_code" value="{{ old('currency_code', $tenant?->currency_code ?: 'INR') }}" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-bold text-center">
@@ -223,7 +223,7 @@
         </div>
 
         <!-- 6. WhatsApp & Telegram Cryptographic Security Architecture -->
-        <div class="bg-[#091315] p-6 rounded-3xl border border-neutral-800 text-white shadow-xl space-y-4">
+        <div class="bg-[#091315] p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-800 text-white shadow-xl space-y-4">
             <div class="flex items-center justify-between border-b border-neutral-800 pb-3">
                 <div class="flex items-center gap-3">
                     <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 text-[#D7FF53] border border-[#D7FF53]/30 flex items-center justify-center font-bold text-sm">

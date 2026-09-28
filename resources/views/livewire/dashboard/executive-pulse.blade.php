@@ -2,10 +2,10 @@
     <!-- ========================================================================= -->
     <!-- REACTIVE GLOBAL DASHBOARD FILTERS & QUICK DATE SELECTORS -->
     <!-- ========================================================================= -->
-    <div class="bg-white p-4 lg:p-5 rounded-3xl border border-neutral-200/80 shadow-2xs space-y-3.5">
+    <div class="bg-white p-4 lg:p-5 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-2xs space-y-3.5">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <!-- Filter Left: Preset Buttons -->
-            <div class="flex items-center gap-1.5 flex-wrap">
+            <div class="flex items-center gap-1.5 flex-wrap overflow-x-auto touch-scroll max-w-full">
                 <span class="text-xs font-bold text-neutral-500 mr-1.5 font-mono uppercase tracking-wider flex items-center gap-1">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>

@@ -6,7 +6,7 @@
 <div class="max-w-4xl mx-auto space-y-6">
 
     <!-- Header -->
-    <div class="bg-white p-6 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
             <h2 class="text-xl font-black text-neutral-900 tracking-tight font-display">My Account & Security</h2>
             <p class="text-xs text-neutral-500 mt-1">
@@ -25,7 +25,7 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         <!-- 1. Profile Information -->
-        <div class="bg-white p-6 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div class="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
             <div>
                 <div class="flex items-center gap-3.5 pb-4 mb-4 border-b border-neutral-100">
                     <div class="w-12 h-12 rounded-2xl bg-[#091315] text-[#D7FF53] font-black text-lg flex items-center justify-center shadow-xs border border-neutral-800 font-display">
@@ -62,7 +62,7 @@
                         <span class="text-[10px] text-neutral-400 mt-1 block font-mono">Email is locked to primary administrator credentials.</span>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Designation</label>
                             <input
@@ -98,7 +98,7 @@
         </div>
 
         <!-- 2. Change Password -->
-        <div class="bg-white p-6 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div class="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
             <div>
                 <h3 class="font-bold text-neutral-900 text-sm pb-4 mb-4 border-b border-neutral-100 flex items-center gap-2 font-display">
                     <span>🔑</span> Change Password
@@ -159,7 +159,7 @@
     </div>
 
     <!-- 3. Fortify Two-Factor Authentication (2FA) -->
-    <div class="bg-white p-6 sm:p-8 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-6">
+    <div class="bg-white p-4 sm:p-8 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-100">
             <div>
                 <h3 class="font-bold text-base text-neutral-900 flex items-center gap-2 font-display">
@@ -220,7 +220,7 @@
                     </p>
                 </div>
 
-                <div class="flex flex-col sm:flex-row items-center gap-6 p-5 bg-[#F5F6F8] rounded-3xl border border-neutral-200/80">
+                <div class="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 p-4 sm:p-5 bg-[#F5F6F8] rounded-2xl sm:rounded-3xl border border-neutral-200/80">
                     <div class="bg-white p-3.5 rounded-2xl border border-neutral-200/80 shadow-xs">
                         {!! $user->twoFactorQrCodeSvg() !!}
                     </div>
@@ -299,7 +299,7 @@
                         Store these recovery codes in a safe place. If you ever lose access to your authenticator app, each code can be used once to access your account.
                     </p>
 
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-4 bg-[#F5F6F8] rounded-2xl border border-neutral-200/80 font-mono text-xs text-neutral-800 font-semibold select-all">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 p-4 bg-[#F5F6F8] rounded-2xl border border-neutral-200/80 font-mono text-xs text-neutral-800 font-semibold select-all">
                         @foreach ($user->recoveryCodes() as $code)
                             <div class="p-2.5 bg-white rounded-xl border border-neutral-200/80 text-center tracking-wider">
                                 {{ $code }}
@@ -335,7 +335,7 @@
     </div>
 
     <!-- 4. Spatie RBAC Roles & Permissions Matrix -->
-    <div class="bg-white p-6 sm:p-8 rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-4">
+    <div class="bg-white p-4 sm:p-8 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-4">
         <h3 class="font-bold text-base text-neutral-900 flex items-center gap-2 font-display">
             <span>🛡️</span> Role-Based Access Control (Spatie RBAC)
         </h3>

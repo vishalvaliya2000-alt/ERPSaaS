@@ -9,12 +9,12 @@
     <!-- 1. EXECUTIVE COCKPIT HERO BRIEFING (ERPSaaS Signature Hero Bento) -->
     <!-- ========================================================================= -->
     <div
-        class="relative overflow-hidden rounded-[28px] bg-white p-6 lg:p-8 text-neutral-900 border border-neutral-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
-        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div class="space-y-2.5">
-                <div class="flex items-center gap-2.5 flex-wrap">
+        class="relative overflow-hidden rounded-2xl sm:rounded-[28px] bg-white p-4 sm:p-6 lg:p-8 text-neutral-900 border border-neutral-200/70 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
+            <div class="space-y-2 sm:space-y-2.5">
+                <div class="flex items-center gap-2 sm:gap-2.5 flex-wrap">
                     <span
-                        class="px-3 py-1 rounded-full text-[10px] font-bold bg-[#F5F6F8] text-neutral-700 border border-neutral-200/80 flex items-center gap-1.5 shadow-2xs font-mono">
+                        class="px-2.5 sm:px-3 py-1 rounded-full text-[10px] font-bold bg-[#F5F6F8] text-neutral-700 border border-neutral-200/80 flex items-center gap-1.5 shadow-2xs font-mono">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         Executive War Room
                     </span>
@@ -22,29 +22,29 @@
                     <span class="text-xs text-neutral-500 font-semibold">{{ date('l, d F Y') }}</span>
                 </div>
 
-                <h1 class="text-2xl lg:text-3xl font-extrabold tracking-tight text-neutral-900 font-display">
+                <h1 class="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-neutral-900 font-display">
                     {{ $aiBriefing['greeting'] }}, {{ auth()->user()->name }}
                 </h1>
 
-                <p class="text-sm text-neutral-600 max-w-3xl leading-relaxed">
+                <p class="text-xs sm:text-sm text-neutral-600 max-w-3xl leading-relaxed">
                     {{ $aiBriefing['summary'] }}
                 </p>
             </div>
 
             <!-- Quick Action Hub (Pill-centric) -->
-            <div class="flex items-center gap-2.5 shrink-0 flex-wrap">
+            <div class="flex items-center gap-2 sm:gap-2.5 shrink-0 flex-wrap">
                 <a href="{{ route('invoices.index') }}"
-                    class="px-4 py-2.5 rounded-full bg-white hover:bg-neutral-50 text-neutral-800 font-bold text-xs border border-neutral-200/80 transition-all flex items-center gap-1.5 shadow-2xs">
+                    class="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-full bg-white hover:bg-neutral-50 text-neutral-800 font-bold text-xs border border-neutral-200/80 transition-all flex items-center gap-1.5 shadow-2xs">
                     <span>💰</span>
                     <span>Ledger</span>
                 </a>
                 <a href="{{ route('shipments.index') }}"
-                    class="px-4 py-2.5 rounded-full bg-white hover:bg-neutral-50 text-neutral-800 font-bold text-xs border border-neutral-200/80 transition-all flex items-center gap-1.5 shadow-2xs">
+                    class="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-full bg-white hover:bg-neutral-50 text-neutral-800 font-bold text-xs border border-neutral-200/80 transition-all flex items-center gap-1.5 shadow-2xs">
                     <span>🚚</span>
                     <span>Dispatches</span>
                 </a>
                 <button @click="openDailyDigest()" type="button"
-                    class="px-4 py-2.5 rounded-full bg-[#091315] hover:bg-black text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+                    class="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[#091315] hover:bg-black text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
                     title="7:00 PM Evening Executive Briefing & WhatsApp Digest">
                     <span>🌙</span>
                     <span>Daily Digest</span>
@@ -56,9 +56,9 @@
     <!-- ========================================================================= -->
     <!-- 2. TODAY'S PRIORITY DECISION QUEUE (Preserved Operational Feature) -->
     <!-- ========================================================================= -->
-    <div class="bg-white rounded-3xl border border-neutral-200/80 shadow-2xs overflow-hidden">
+    <div class="bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-2xs overflow-hidden">
         <!-- Section Header & Daily Completion Meter -->
-        <div class="p-5 bg-[#091315] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="p-3.5 sm:p-5 bg-[#091315] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
             <div class="space-y-1">
                 <div class="flex items-center gap-2.5 flex-wrap">
                     <span class="w-2.5 h-2.5 rounded-full bg-[#D7FF53] animate-pulse"></span>
@@ -101,7 +101,7 @@
         </div>
 
         <!-- Decision Cards Stream -->
-        <div class="p-5 divide-y divide-neutral-100 space-y-4">
+        <div class="p-3 sm:p-5 divide-y divide-neutral-100 space-y-3 sm:space-y-4">
             @forelse($decisionQueue as $item)
             <div
                 class="pt-4 first:pt-0 flex flex-col lg:flex-row lg:items-center justify-between gap-4 group hover:bg-[#F5F6F8] p-3.5 rounded-2xl transition-colors">

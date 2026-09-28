@@ -6,7 +6,7 @@
 <div class="space-y-6" x-data="productsManager()">
     <!-- Header -->
     <div
-        class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-neutral-200/80 shadow-xs">
+        class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-neutral-200/80 shadow-xs">
         <div>
             <h2 class="text-xl font-black text-neutral-900 flex items-center gap-2">
                 <span>📦</span> Products
@@ -19,13 +19,13 @@
 
         <!-- Action & Filter Controls -->
         <div class="flex items-center gap-2 flex-wrap">
-            <form method="GET" action="{{ route('products.index') }}" class="flex items-center gap-2">
+            <form method="GET" action="{{ route('products.index') }}" class="flex items-center gap-2 w-full sm:w-auto">
                 <input type="text" name="q" placeholder="Search SKU, name, or HSN..." value="{{ $search }}"
-                    class="px-3.5 py-2 text-xs border border-neutral-300 rounded-xl focus:ring-2 focus:ring-[#f53003] w-56 font-medium">
+                    class="px-3.5 py-2 text-xs border border-neutral-300 rounded-xl focus:ring-2 focus:ring-[#f53003] w-full sm:w-56 font-medium">
             </form>
 
             <button @click="openAddModal()"
-                class="px-4 py-2.5 bg-[#091315] hover:bg-black text-[#D7FF53] font-extrabold text-xs rounded-full shadow-2xs transition-all flex items-center gap-2 cursor-pointer border border-neutral-800">
+                class="px-4 py-2.5 bg-[#091315] hover:bg-black text-[#D7FF53] font-extrabold text-xs rounded-full shadow-2xs transition-all flex items-center gap-2 cursor-pointer border border-neutral-800 shrink-0">
                 <span>➕</span>
                 <span>Add Product</span>
             </button>
@@ -33,7 +33,7 @@
     </div>
 
     <!-- Products Table -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+    <div class="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
         <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <span class="text-xs font-bold text-slate-700">Catalog SKUs ({{ $products->count() }})</span>
             <span class="text-[11px] text-slate-500">Auto-populates items with HSN, GST rate, and packaging in Orders &
@@ -55,7 +55,7 @@
             </button>
         </div>
         @else
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto touch-scroll">
             <table class="w-full text-left text-xs border-collapse">
                 <thead>
                     <tr class="bg-slate-100/80 text-slate-700 font-bold border-b border-slate-200">
@@ -195,11 +195,11 @@
     <!-- Add Product Modal (with Smart Auto-Generation & Online HSN Search API) -->
     <template x-teleport="body">
         <div x-show="showAddModal" x-cloak
-            class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+            class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
             <div @click.outside="showAddModal = false"
-                class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 max-w-xl w-full overflow-hidden max-h-[90vh] flex flex-col text-xs">
+                class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 max-w-xl w-full overflow-hidden max-h-[92vh] flex flex-col text-xs">
                 <!-- Modal Header -->
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <div
                             class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center text-lg font-bold">
@@ -217,7 +217,7 @@
                 </div>
 
                 <form action="{{ route('products.store') }}" method="POST"
-                    class="p-5 space-y-4 text-xs overflow-y-auto flex-1">
+                    class="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1 touch-scroll">
                     @csrf
 
                     <!-- 1. Product Description & Cut with Auto-derive Trigger -->
@@ -369,11 +369,11 @@
     <!-- Edit Product Modal (with HSN API Search) -->
     <template x-teleport="body">
         <div x-show="isEditModalOpen" x-cloak
-            class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+            class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
             <div @click.outside="isEditModalOpen = false"
-                class="bg-white rounded-3xl shadow-2xl border border-neutral-200/80 max-w-lg w-full overflow-hidden max-h-[90vh] flex flex-col text-xs">
+                class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 max-w-lg w-full overflow-hidden max-h-[92vh] flex flex-col text-xs">
                 <!-- Modal Header -->
-                <div class="p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <div
                             class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center text-lg font-bold">
@@ -390,10 +390,10 @@
                 </div>
 
                 <form :action="'/products/' + (editProduct ? editProduct.id : '') + '/update'" method="POST"
-                    class="p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
+                    class="p-4 sm:p-5 space-y-3.5 text-xs overflow-y-auto flex-1 touch-scroll">
                     @csrf
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="col-span-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="sm:col-span-2">
                             <label class="block font-bold text-neutral-700 mb-1">Product Description & Cut *</label>
                             <input type="text" name="product_name" x-model="editProduct.product_name" required
                                 class="w-full px-3 py-2 border border-neutral-300 rounded-xl font-bold focus:ring-2 focus:ring-[#091315]">
@@ -405,7 +405,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">HSN Code (GST Tariff)</label>
                             <input type="text" name="hsn_code" x-model="editProduct.hsn_code"
@@ -420,7 +420,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">GST Tax Rate (%)</label>
                             <input type="number" step="0.01" name="tax_rate_percent"
