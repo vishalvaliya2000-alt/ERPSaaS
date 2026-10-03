@@ -88,6 +88,7 @@ class InvoiceController extends Controller
                     'id' => $it->id,
                     'sales_order_id' => $order?->id,
                     'sales_order_number' => $order?->order_number ?? 'PO',
+                    'sales_order_payment_terms' => $order?->payment_terms,
                     'sales_order_item_id' => $it->sales_order_item_id,
                     'product_id' => $product?->id,
                     'product_name' => $product?->product_name ?? 'Product',
@@ -120,6 +121,8 @@ class InvoiceController extends Controller
                 'shipment_date' => $s->shipment_date?->format('d M Y') ?? '',
                 'customer_id' => $firstCust?->id,
                 'customer_name' => $firstCust?->company_name ?? 'Client',
+                'customer_payment_terms_days' => (int)($firstCust?->payment_terms_days ?? 30),
+                'order_payment_terms' => $distinctOrders->first()?->payment_terms ?? $s->salesOrder?->payment_terms,
                 'sales_order_id' => $s->sales_order_id ?? ($distinctOrders->first()?->id ?? null),
                 'freight_payment_type' => $s->freight_payment_type,
                 'freight_amount' => (float)$s->freight_amount,
@@ -140,6 +143,7 @@ class InvoiceController extends Controller
                 'id' => $o->id,
                 'order_number' => $o->order_number,
                 'po_number' => $o->po_number,
+                'payment_terms' => $o->payment_terms,
                 'total_amount' => (float)$o->total_amount,
                 'remaining_amount' => (float)$o->remainingInvoicableAmount(),
                 'advance_received' => (float)$o->advance_received,
@@ -147,7 +151,13 @@ class InvoiceController extends Controller
             ])->toArray();
         }
 
-        return view('invoices.index', compact('invoices', 'receipts', 'totalBilled', 'totalReceived', 'totalOutstanding', 'pendingCount', 'customers', 'products', 'orders', 'shipments', 'shipmentOptions', 'customerOrdersData'));
+        $customersMap = $customers->keyBy('id')->map(fn($c) => [
+            'id' => $c->id,
+            'company_name' => $c->company_name,
+            'payment_terms_days' => (int)($c->payment_terms_days ?? 30),
+        ])->toArray();
+
+        return view('invoices.index', compact('invoices', 'receipts', 'totalBilled', 'totalReceived', 'totalOutstanding', 'pendingCount', 'customers', 'products', 'orders', 'shipments', 'shipmentOptions', 'customerOrdersData', 'customersMap'));
     }
 
     public function store(Request $request)
@@ -254,7 +264,7 @@ class InvoiceController extends Controller
 
             $cust = Customer::findOrFail($validated['customer_id']);
             $invDate = Carbon::parse($validated['invoice_date']);
-            $dueDate = !empty($validated['due_date']) ? Carbon::parse($validated['due_date']) : $invDate->copy()->addDays($cust->payment_terms_days ?: 30);
+            $dueDate = !empty($validated['due_date']) ? Carbon::parse($validated['due_date']) : null;
 
             $linkedPosString = !empty($linkedPoList) ? implode(', ', $linkedPoList) : null;
 
@@ -299,6 +309,25 @@ class InvoiceController extends Controller
 
             $balanceDue = max(0, $totalAmount - $advanceApplied);
             $invStatus = $balanceDue <= 0 ? 'PAID' : ($advanceApplied > 0 ? 'PART_PAID' : 'ISSUED');
+
+            if (!$dueDate) {
+                if ($balanceDue <= 0 && $advanceApplied > 0) {
+                    $dueDate = $invDate->copy();
+                } else {
+                    $creditDays = (int)($cust->payment_terms_days ?: 30);
+                    $firstOrderTerms = $order?->payment_terms ?? $linkedOrders->first()?->payment_terms;
+                    if ($firstOrderTerms) {
+                        if (preg_match('/(\d+)\s*(?:days?|day)/i', $firstOrderTerms, $m)) {
+                            $creditDays = (int)$m[1];
+                        } elseif (preg_match('/net\s*(\d+)/i', $firstOrderTerms, $m)) {
+                            $creditDays = (int)$m[1];
+                        } elseif (stripos($firstOrderTerms, 'advance') !== false || stripos($firstOrderTerms, 'immediate') !== false) {
+                            $creditDays = 0;
+                        }
+                    }
+                    $dueDate = $invDate->copy()->addDays($creditDays);
+                }
+            }
 
             $invoice = Invoice::create([
                 'invoice_number' => $validated['invoice_number'],

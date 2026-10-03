@@ -86,6 +86,22 @@
             const day = String(d.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
         };
+
+        window.addDaysToDateString = function(dateStr, days) {
+            if (!dateStr) return '';
+            const clean = window.formatInputDate(dateStr);
+            const parts = clean.split('-');
+            if (parts.length !== 3) return dateStr;
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const day = parseInt(parts[2], 10);
+            const dt = new Date(year, month, day);
+            dt.setDate(dt.getDate() + (parseInt(days, 10) || 0));
+            const y = dt.getFullYear();
+            const m = String(dt.getMonth() + 1).padStart(2, '0');
+            const d = String(dt.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
     </script>
 
     <style>

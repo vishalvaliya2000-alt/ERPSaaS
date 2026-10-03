@@ -814,7 +814,7 @@
                                         </div>
                                         <div class="sm:col-span-3">
                                             <label class="block font-bold text-slate-700 mb-1 text-[11px]">Sales Order (PO)</label>
-                                            <select :name="'items[' + idx + '][order_id]'" x-model="item.order_id" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-medium text-xs bg-white">
+                                            <select :name="'items[' + idx + '][order_id]'" x-model="item.order_id" @change="recalculateDirectTotals(); calculateDueDate();" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-medium text-xs bg-white">
                                                 <option value="">-- Direct Sale --</option>
                                                 <template x-for="ord in getCustomerOrders()" :key="ord.id">
                                                     <option :value="ord.id" x-text="ord.order_number + (ord.po_number ? ' (' + ord.po_number + ')' : '')"></option>
@@ -850,11 +850,23 @@
                         </div>
                         <div>
                             <label class="block font-bold text-slate-700 mb-1">Invoice Date *</label>
-                            <input type="date" name="invoice_date" value="{{ date('Y-m-d') }}" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs" required>
+                            <input type="date" name="invoice_date" x-model="invoiceDate" @change="onInvoiceDateChange()" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800" required>
                         </div>
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Payment Due Date *</label>
-                            <input type="date" name="due_date" value="{{ date('Y-m-d', strtotime('+30 days')) }}" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs" required>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block font-bold text-slate-700">Payment Due Date *</label>
+                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded text-brand-800 bg-brand-50 border border-brand-200" x-show="creditTermsReason" x-text="creditTermsReason"></span>
+                            </div>
+                            <input type="date" name="due_date" x-model="dueDate" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-900" required>
+
+                            <!-- Quick Credit Terms Preset Chips -->
+                            <div class="flex items-center gap-1 mt-1.5 overflow-x-auto py-0.5">
+                                <button type="button" @click="applyPresetDays(0, '⚡ Immediate / Advance')" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors cursor-pointer" :class="activeCreditDays === 0 ? 'bg-slate-900 text-[#D7FF53] border-slate-900 font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'" title="Immediate / 0 Days Advance">0D Adv</button>
+                                <button type="button" @click="applyPresetDays(15, '15 Days Credit')" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors cursor-pointer" :class="activeCreditDays === 15 ? 'bg-slate-900 text-[#D7FF53] border-slate-900 font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'" title="15 Days Credit">15D</button>
+                                <button type="button" @click="applyPresetDays(30, '30 Days Credit')" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors cursor-pointer" :class="activeCreditDays === 30 ? 'bg-slate-900 text-[#D7FF53] border-slate-900 font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'" title="30 Days Credit">30D</button>
+                                <button type="button" @click="applyPresetDays(45, '45 Days Credit')" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors cursor-pointer" :class="activeCreditDays === 45 ? 'bg-slate-900 text-[#D7FF53] border-slate-900 font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'" title="45 Days Credit">45D</button>
+                                <button type="button" @click="applyPresetDays(60, '60 Days Credit')" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors cursor-pointer" :class="activeCreditDays === 60 ? 'bg-slate-900 text-[#D7FF53] border-slate-900 font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'" title="60 Days Credit">60D</button>
+                            </div>
                         </div>
                     </div>
 
@@ -963,7 +975,7 @@
                                             min="0"
                                             :max="Math.min(getTotalAmount(), getAvailableAdvance())"
                                             x-model="manualAdvanceAmount"
-                                            @input="advanceMode = 'CUSTOM'"
+                                            @input="advanceMode = 'CUSTOM'; calculateDueDate();"
                                             placeholder="0"
                                             class="w-full pl-6 pr-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-right font-mono font-bold text-xs text-[#D7FF53] focus:border-[#D7FF53] focus:ring-1 focus:ring-[#D7FF53] outline-hidden"
                                         >
@@ -1077,6 +1089,14 @@
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Payment Due Date *</label>
                             <input type="date" name="due_date" x-model="editDueDate" class="w-full px-3 py-2 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
+                            <!-- Quick Credit Terms Preset Chips for Edit -->
+                            <div class="flex items-center gap-1 mt-1.5 overflow-x-auto py-0.5">
+                                <button type="button" @click="editDueDate = window.addDaysToDateString(editInvoiceDate, 0)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="0 Days / Immediate">0D Adv</button>
+                                <button type="button" @click="editDueDate = window.addDaysToDateString(editInvoiceDate, 15)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="15 Days Credit">15D</button>
+                                <button type="button" @click="editDueDate = window.addDaysToDateString(editInvoiceDate, 30)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="30 Days Credit">30D</button>
+                                <button type="button" @click="editDueDate = window.addDaysToDateString(editInvoiceDate, 45)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="45 Days Credit">45D</button>
+                                <button type="button" @click="editDueDate = window.addDaysToDateString(editInvoiceDate, 60)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="60 Days Credit">60D</button>
+                            </div>
                         </div>
                     </div>
 
@@ -1334,17 +1354,24 @@
     function invoiceModalForm() {
         const shipmentDataList = @js($shipmentOptions);
         const customerOrdersMap = @js($customerOrdersData ?? []);
+        const customersMap = @js($customersMap ?? []);
         const firstProdId = '{{ $products->first()?->id ?? "" }}';
         const firstProdRate = {{ $products->first()?->standard_rate ?? 120 }};
+        const initialInvoiceDate = '{{ date('Y-m-d') }}';
 
         return {
             shipmentList: shipmentDataList,
             customerOrdersMap: customerOrdersMap,
+            customersMap: customersMap,
             selectedCustomerId: '{{ $customers->first()?->id ?? "" }}',
             selectedShipmentId: '',
             selectedShipment: null,
             shipmentItems: [],
             selectedInvFile: null,
+            invoiceDate: initialInvoiceDate,
+            dueDate: '',
+            activeCreditDays: 30,
+            creditTermsReason: '',
             directItems: [
                 { product_id: firstProdId, order_id: '', quantity: 5000, rate: firstProdRate }
             ],
@@ -1360,6 +1387,7 @@
             init() {
                 // Initialize default subtotal for direct items
                 this.recalculateDirectTotals();
+                this.calculateDueDate();
             },
 
             getAvailableShipments() {
@@ -1384,6 +1412,8 @@
                     this.shipmentItems = [];
                     this.detectedPoNumbers = [];
                     this.recalculateDirectTotals();
+                } else {
+                    this.calculateDueDate();
                 }
             },
 
@@ -1397,6 +1427,7 @@
                     this.freightMode = 'TO_PAY';
                     this.freightAmount = '';
                     this.recalculateDirectTotals();
+                    this.calculateDueDate();
                     return;
                 }
 
@@ -1419,6 +1450,7 @@
                     }));
 
                     this.recalculateFromShipmentItems();
+                    this.calculateDueDate();
                 }
             },
 
@@ -1437,6 +1469,7 @@
 
                 this.materialSubtotal = sub;
                 this.detectedPoNumbers = Array.from(poSet);
+                this.calculateDueDate();
             },
 
             getSelectedCount() {
@@ -1478,6 +1511,7 @@
                     total += (q * r);
                 });
                 this.materialSubtotal = total;
+                this.calculateDueDate();
             },
 
             getTaxableSubtotal() {
@@ -1562,6 +1596,7 @@
                 } else if (mode === 'NONE') {
                     this.manualAdvanceAmount = 0;
                 }
+                this.calculateDueDate();
             },
 
             getAppliedAdvance() {
@@ -1586,6 +1621,101 @@
                 const total = this.getTotalAmount();
                 const applied = this.getAppliedAdvance();
                 return Math.max(0, total - applied);
+            },
+
+            parseTermsString(term) {
+                if (!term || typeof term !== 'string') return null;
+                const str = term.trim().toLowerCase();
+
+                if (str.includes('100% advance') || str.includes('immediate') || str.includes('cash on delivery') || str.includes('cod') || str.includes('advance payment') || str.includes('against delivery')) {
+                    return 0;
+                }
+
+                const dayMatch = str.match(/(\d+)\s*(?:days?|day)/i);
+                if (dayMatch && dayMatch[1]) {
+                    return parseInt(dayMatch[1], 10);
+                }
+
+                const netMatch = str.match(/net\s*(\d+)/i);
+                if (netMatch && netMatch[1]) {
+                    return parseInt(netMatch[1], 10);
+                }
+
+                const numOnly = str.match(/^\d+$/);
+                if (numOnly) {
+                    return parseInt(numOnly[0], 10);
+                }
+
+                return null;
+            },
+
+            detectCreditDays() {
+                // 1. Advance coverage check: If Net Balance Due is 0 and applied advance > 0
+                const netDue = this.getNetBalanceDue();
+                const appliedAdv = this.getAppliedAdvance();
+                if (netDue <= 0 && appliedAdv > 0) {
+                    return { days: 0, reason: '⚡ 100% Advance Settled' };
+                }
+
+                // 2. Check linked shipment or linked PO terms
+                if (this.selectedShipment) {
+                    if (this.selectedShipment.order_payment_terms) {
+                        const parsed = this.parseTermsString(this.selectedShipment.order_payment_terms);
+                        if (parsed !== null) {
+                            return { days: parsed, reason: `PO Terms: ${this.selectedShipment.order_payment_terms}` };
+                        }
+                    }
+                    const itemWithTerms = this.shipmentItems.find(it => it.selected && it.sales_order_payment_terms);
+                    if (itemWithTerms && itemWithTerms.sales_order_payment_terms) {
+                        const parsed = this.parseTermsString(itemWithTerms.sales_order_payment_terms);
+                        if (parsed !== null) {
+                            return { days: parsed, reason: `PO Terms: ${itemWithTerms.sales_order_payment_terms}` };
+                        }
+                    }
+                } else {
+                    const ordersList = this.getCustomerOrders();
+                    for (const it of this.directItems) {
+                        if (it.order_id) {
+                            const ord = ordersList.find(o => String(o.id) === String(it.order_id));
+                            if (ord && ord.payment_terms) {
+                                const parsed = this.parseTermsString(ord.payment_terms);
+                                if (parsed !== null) {
+                                    return { days: parsed, reason: `PO Terms: ${ord.payment_terms}` };
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 3. Customer account default credit terms
+                const custId = String(this.selectedCustomerId || '');
+                if (custId && this.customersMap && this.customersMap[custId]) {
+                    const cust = this.customersMap[custId];
+                    const days = cust.payment_terms_days !== undefined && cust.payment_terms_days !== null ? parseInt(cust.payment_terms_days, 10) : 30;
+                    return { days: days, reason: `Client Terms: ${days} Days Credit` };
+                }
+
+                return { days: 30, reason: 'Default (30 Days Credit)' };
+            },
+
+            calculateDueDate() {
+                const { days, reason } = this.detectCreditDays();
+                this.activeCreditDays = days;
+                this.creditTermsReason = reason;
+                const baseDate = this.invoiceDate || '{{ date('Y-m-d') }}';
+                this.dueDate = window.addDaysToDateString ? window.addDaysToDateString(baseDate, days) : baseDate;
+            },
+
+            applyPresetDays(days, reason = null) {
+                this.activeCreditDays = days;
+                this.creditTermsReason = reason || `${days} Days Credit`;
+                const baseDate = this.invoiceDate || '{{ date('Y-m-d') }}';
+                this.dueDate = window.addDaysToDateString ? window.addDaysToDateString(baseDate, days) : baseDate;
+            },
+
+            onInvoiceDateChange() {
+                const baseDate = this.invoiceDate || '{{ date('Y-m-d') }}';
+                this.dueDate = window.addDaysToDateString ? window.addDaysToDateString(baseDate, this.activeCreditDays) : baseDate;
             }
         }
     }
