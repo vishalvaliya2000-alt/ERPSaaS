@@ -290,3 +290,88 @@ test('6. Customer 360 page renders all connected documents and transaction badge
     $response->assertSee('Connected Transaction');
     $response->assertSee('SO: SO-CUST-360');
 });
+
+test('7. Two-phase shipment flow: scheduling reserves balance without LR and confirm dispatch updates LR to DISPATCHED', function () {
+    $order = SalesOrder::create([
+        'tenant_id' => $this->tenant->id,
+        'customer_id' => $this->customer->id,
+        'order_number' => 'SO-SCHED-' . rand(100, 999),
+        'order_date' => now(),
+        'total_amount' => 140000,
+        'status' => 'APPROVED',
+    ]);
+
+    $orderItem = SalesOrderItem::create([
+        'sales_order_id' => $order->id,
+        'product_id' => $this->product->id,
+        'order_qty' => 1000,
+        'rate' => 140,
+        'order_value' => 140000,
+        'balance_qty' => 1000,
+        'shipped_qty' => 0,
+        'status' => 'PENDING',
+    ]);
+
+    // Step 1: Schedule future shipment (No LR, status SCHEDULED)
+    $scheduleData = [
+        'status' => 'SCHEDULED',
+        'shipment_date' => now()->addDays(5)->toDateString(),
+        'freight_payment_type' => 'TO_PAY',
+        'items' => [
+            [
+                'sales_order_item_id' => $orderItem->id,
+                'quantity' => 600,
+            ],
+        ],
+    ];
+
+    $response = $this->actingAs($this->user)->post(route('shipments.store'), $scheduleData);
+    $response->assertRedirect(route('shipments.index'));
+    $response->assertSessionHas('success');
+
+    // Verify shipment created with status SCHEDULED, null LR
+    $shipment = CommercialShipment::where('status', 'SCHEDULED')->latest()->first();
+    expect($shipment)->not->toBeNull();
+    expect($shipment->lr_number)->toBeNull();
+    expect($shipment->transporter)->toBe('TBD (To Be Decided)');
+
+    // Verify item quantity deducted/reserved from PO balance
+    $orderItem->refresh();
+    expect((float)$orderItem->balance_qty)->toBe(400.0);
+    expect((float)$orderItem->shipped_qty)->toBe(600.0);
+
+    // Verify FollowupTask created for DISPATCH_SCHEDULE
+    $task = \App\Models\FollowupTask::where('customer_id', $this->customer->id)
+        ->where('type', 'DISPATCH_SCHEDULE')
+        ->latest()
+        ->first();
+    expect($task)->not->toBeNull();
+
+    // Step 2: Confirm Dispatch (Assign LR & vehicle, set status to DISPATCHED)
+    $lrFile = UploadedFile::fake()->create('actual_bilty.pdf', 200, 'application/pdf');
+    $confirmData = [
+        'status' => 'DISPATCHED',
+        'transporter' => 'Shree Mahalakshmi Express',
+        'lr_number' => 'LR-SCHED-CONFIRM-99',
+        'shipment_date' => now()->toDateString(),
+        'vehicle_number' => 'GJ-04-AX-5555',
+        'freight_payment_type' => 'TO_PAY',
+        'lr_document' => $lrFile,
+    ];
+
+    $updateResponse = $this->actingAs($this->user)->post("/shipments/{$shipment->id}/update", $confirmData);
+    $updateResponse->assertRedirect(route('shipments.index'));
+
+    $shipment->refresh();
+    expect($shipment->status)->toBe('DISPATCHED');
+    expect($shipment->lr_number)->toBe('LR-SCHED-CONFIRM-99');
+    expect($shipment->transporter)->toBe('Shree Mahalakshmi Express');
+    expect($shipment->vehicle_number)->toBe('GJ-04-AX-5555');
+
+    // Verify delivery confirmation task created
+    $deliveryTask = \App\Models\FollowupTask::where('customer_id', $this->customer->id)
+        ->where('type', 'DELIVERY_CONFIRMATION')
+        ->latest()
+        ->first();
+    expect($deliveryTask)->not->toBeNull();
+});

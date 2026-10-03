@@ -69,14 +69,20 @@ class ShipmentController extends Controller
 
     public function store(Request $request)
     {
+        $targetStatus = $request->input('status', 'DISPATCHED');
+        $isScheduled = ($targetStatus === 'SCHEDULED');
+
         $validated = $request->validate([
-            'transporter' => 'required|string|max:100',
-            'lr_number' => 'required|string|max:100|unique:commercial_shipments,lr_number',
+            'transporter' => $isScheduled ? 'nullable|string|max:100' : 'required|string|max:100',
+            'lr_number' => $isScheduled
+                ? 'nullable|string|max:100|unique:commercial_shipments,lr_number'
+                : 'required|string|max:100|unique:commercial_shipments,lr_number',
             'vehicle_number' => 'nullable|string|max:50',
             'destination' => 'nullable|string|max:255',
             'shipment_date' => 'required|date',
             'freight_payment_type' => 'required|in:TO_PAY,PAID',
             'freight_amount' => 'nullable|numeric|min:0',
+            'status' => 'nullable|string',
             'notes' => 'nullable|string',
             'lr_document' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:25600',
             'items' => 'required|array|min:1',
@@ -94,6 +100,9 @@ class ShipmentController extends Controller
             $totalConsignmentQty = 0;
             $firstOrderId = null;
             $freightAmount = ($validated['freight_payment_type'] === 'PAID') ? (float)($validated['freight_amount'] ?? 0) : 0;
+            $status = $isScheduled ? 'SCHEDULED' : ($validated['status'] ?? 'DISPATCHED');
+            $transporterName = !empty($validated['transporter']) ? $validated['transporter'] : ($isScheduled ? 'TBD (To Be Decided)' : 'Direct Factory Handover');
+            $lrNum = !empty($validated['lr_number']) ? $validated['lr_number'] : null;
 
             // Pre-validation of all line items
             foreach ($validated['items'] as $itData) {
@@ -111,14 +120,14 @@ class ShipmentController extends Controller
                 'shipment_number' => $shipmentNumber,
                 'sales_order_id' => null,
                 'shipment_date' => Carbon::parse($validated['shipment_date']),
-                'transporter' => $validated['transporter'],
-                'lr_number' => $validated['lr_number'],
+                'transporter' => $transporterName,
+                'lr_number' => $lrNum,
                 'vehicle_number' => $validated['vehicle_number'] ?? null,
                 'destination' => $validated['destination'] ?? 'Customer Godown',
                 'delivery_type' => 'Door Delivery',
                 'freight_payment_type' => $validated['freight_payment_type'],
                 'freight_amount' => $freightAmount,
-                'status' => 'DISPATCHED',
+                'status' => $status,
                 'notes' => $validated['notes'] ?? null,
                 'proof_document_url' => $proofPath,
             ]);
@@ -165,31 +174,52 @@ class ShipmentController extends Controller
                 $ordStatus = $remainingBal <= 0 ? 'COMPLETED' : 'PARTIALLY_DISPATCHED';
                 $ord->update([
                     'status' => $ordStatus,
-                    'actual_dispatch_date' => $remainingBal <= 0 ? Carbon::parse($validated['shipment_date']) : $ord->actual_dispatch_date,
+                    'actual_dispatch_date' => ($remainingBal <= 0 && $status !== 'SCHEDULED') ? Carbon::parse($validated['shipment_date']) : $ord->actual_dispatch_date,
                 ]);
 
                 if ($ordStatus === 'COMPLETED') {
                     $completedOrdersCount++;
                 }
 
-                // Follow-up task for delivery confirmation
-                FollowupTask::create([
-                    'customer_id' => $ord->customer_id,
-                    'type' => 'DELIVERY_CONFIRMATION',
-                    'reason' => "Material dispatched under LR {$shipment->lr_number} ({$shipment->transporter}) for PO {$ord->order_number}",
-                    'priority' => 'HIGH',
-                    'due_date' => Carbon::now()->addDays(3),
-                    'status' => 'PENDING',
-                    'pending_item' => "Delivery confirmation at {$shipment->destination}",
-                    'next_action' => "Track consignment with {$shipment->transporter} and confirm arrival with client",
-                ]);
+                if ($status === 'SCHEDULED') {
+                    // Task to alert on scheduled dispatch day
+                    FollowupTask::create([
+                        'customer_id' => $ord->customer_id,
+                        'type' => 'DISPATCH_SCHEDULE',
+                        'reason' => "Scheduled shipment {$shipment->shipment_number} due on " . Carbon::parse($validated['shipment_date'])->format('d M Y') . " for PO {$ord->order_number}",
+                        'priority' => 'HIGH',
+                        'due_date' => Carbon::parse($validated['shipment_date']),
+                        'status' => 'PENDING',
+                        'pending_item' => "Vehicle loading & LR generation for " . number_format($totalConsignmentQty) . " KG",
+                        'next_action' => "Confirm truck placement with {$transporterName} and execute loading at factory",
+                    ]);
 
-                ActivityLog::create([
-                    'customer_id' => $ord->customer_id,
-                    'activity_type' => 'SHIPMENT',
-                    'title' => "Consignment Dispatched (LR: {$shipment->lr_number})",
-                    'description' => "Dispatched material under LR {$shipment->lr_number} via {$shipment->transporter} (" . ($shipment->freight_payment_type === 'PAID' ? "Paid Freight: " . formatINR($freightAmount) : "TO PAY") . ") against PO {$ord->order_number}.",
-                ]);
+                    ActivityLog::create([
+                        'customer_id' => $ord->customer_id,
+                        'activity_type' => 'SHIPMENT',
+                        'title' => "Shipment Scheduled ({$shipment->shipment_number})",
+                        'description' => "Scheduled dispatch of " . number_format($totalConsignmentQty) . " KG on " . Carbon::parse($validated['shipment_date'])->format('d M Y') . " against PO {$ord->order_number}.",
+                    ]);
+                } else {
+                    // Follow-up task for delivery confirmation
+                    FollowupTask::create([
+                        'customer_id' => $ord->customer_id,
+                        'type' => 'DELIVERY_CONFIRMATION',
+                        'reason' => "Material dispatched under LR " . ($shipment->lr_number ?: $shipment->shipment_number) . " ({$shipment->transporter}) for PO {$ord->order_number}",
+                        'priority' => 'HIGH',
+                        'due_date' => Carbon::now()->addDays(3),
+                        'status' => 'PENDING',
+                        'pending_item' => "Delivery confirmation at {$shipment->destination}",
+                        'next_action' => "Track consignment with {$shipment->transporter} and confirm arrival with client",
+                    ]);
+
+                    ActivityLog::create([
+                        'customer_id' => $ord->customer_id,
+                        'activity_type' => 'SHIPMENT',
+                        'title' => "Consignment Dispatched (LR: " . ($shipment->lr_number ?: $shipment->shipment_number) . ")",
+                        'description' => "Dispatched material under LR " . ($shipment->lr_number ?: 'N/A') . " via {$shipment->transporter} (" . ($shipment->freight_payment_type === 'PAID' ? "Paid Freight: " . formatINR($freightAmount) : "TO PAY") . ") against PO {$ord->order_number}.",
+                    ]);
+                }
             }
 
             // Attach Transport LR Document to Document Centre and link to Shipment
@@ -202,7 +232,12 @@ class ShipmentController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('shipments.index')->with('success', "✓ Consignment {$shipment->lr_number} created successfully (" . ($shipment->freight_payment_type === 'PAID' ? "Freight Paid: " . formatINR($freightAmount) : "Freight: TO PAY") . ") with " . count($validated['items']) . " item(s) across " . count($affectedOrderIds) . " PO(s)!");
+
+            $successMsg = ($status === 'SCHEDULED')
+                ? "📅 Shipment plan {$shipment->shipment_number} scheduled for " . Carbon::parse($validated['shipment_date'])->format('d M Y') . " with " . number_format($totalConsignmentQty) . " KG across " . count($affectedOrderIds) . " PO(s)!"
+                : "✓ Consignment {$shipment->lr_number} created successfully (" . ($shipment->freight_payment_type === 'PAID' ? "Freight Paid: " . formatINR($freightAmount) : "Freight: TO PAY") . ") with " . count($validated['items']) . " item(s) across " . count($affectedOrderIds) . " PO(s)!";
+
+            return redirect()->route('shipments.index')->with('success', $successMsg);
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Shipment creation failed: ' . $e->getMessage(), [
@@ -215,11 +250,16 @@ class ShipmentController extends Controller
 
     public function update(Request $request, $id)
     {
-        $shipment = CommercialShipment::findOrFail($id);
+        $shipment = CommercialShipment::with(['salesOrder.customer'])->findOrFail($id);
+        $wasScheduled = ($shipment->status === 'SCHEDULED');
+        $targetStatus = $request->input('status', $shipment->status);
+        $isNowDispatched = in_array($targetStatus, ['DISPATCHED', 'IN_TRANSIT']);
 
         $validated = $request->validate([
-            'transporter' => 'required|string|max:100',
-            'lr_number' => 'required|string|max:100|unique:commercial_shipments,lr_number,' . $id,
+            'transporter' => ($isNowDispatched && empty($shipment->transporter)) ? 'required|string|max:100' : 'nullable|string|max:100',
+            'lr_number' => $isNowDispatched
+                ? 'required|string|max:100|unique:commercial_shipments,lr_number,' . $id
+                : 'nullable|string|max:100|unique:commercial_shipments,lr_number,' . $id,
             'vehicle_number' => 'nullable|string|max:50',
             'destination' => 'nullable|string|max:255',
             'shipment_date' => 'required|date',
@@ -235,16 +275,17 @@ class ShipmentController extends Controller
         DB::beginTransaction();
         try {
             $freightAmount = ($validated['freight_payment_type'] === 'PAID') ? (float)($validated['freight_amount'] ?? 0) : 0;
+            $newStatus = $validated['status'] ?? $shipment->status;
 
             $data = [
-                'transporter' => $validated['transporter'],
-                'lr_number' => $validated['lr_number'],
+                'transporter' => $validated['transporter'] ?: ($shipment->transporter ?: 'TBD (To Be Decided)'),
+                'lr_number' => !empty($validated['lr_number']) ? $validated['lr_number'] : $shipment->lr_number,
                 'vehicle_number' => $validated['vehicle_number'] ?? null,
                 'destination' => $validated['destination'] ?? null,
                 'shipment_date' => Carbon::parse($validated['shipment_date']),
                 'freight_payment_type' => $validated['freight_payment_type'],
                 'freight_amount' => $freightAmount,
-                'status' => $validated['status'] ?? $shipment->status,
+                'status' => $newStatus,
                 'notes' => $validated['notes'] ?? null,
             ];
 
@@ -258,9 +299,36 @@ class ShipmentController extends Controller
                 );
             }
 
+            // If a scheduled shipment just got dispatched, create delivery task and log
+            if ($wasScheduled && $isNowDispatched) {
+                if ($shipment->salesOrder) {
+                    FollowupTask::create([
+                        'customer_id' => $shipment->salesOrder->customer_id,
+                        'type' => 'DELIVERY_CONFIRMATION',
+                        'reason' => "Material dispatched under LR {$shipment->lr_number} ({$shipment->transporter}) for PO {$shipment->salesOrder->order_number}",
+                        'priority' => 'HIGH',
+                        'due_date' => Carbon::now()->addDays(3),
+                        'status' => 'PENDING',
+                        'pending_item' => "Delivery confirmation at {$shipment->destination}",
+                        'next_action' => "Track consignment with {$shipment->transporter} and confirm arrival with client",
+                    ]);
+
+                    ActivityLog::create([
+                        'customer_id' => $shipment->salesOrder->customer_id,
+                        'activity_type' => 'SHIPMENT',
+                        'title' => "Consignment Dispatched (LR: {$shipment->lr_number})",
+                        'description' => "Dispatched planned consignment {$shipment->shipment_number} under LR {$shipment->lr_number} via {$shipment->transporter} against PO {$shipment->salesOrder->order_number}.",
+                    ]);
+                }
+            }
+
             DB::commit();
 
-            return redirect()->route('shipments.index')->with('success', "✓ Shipment {$shipment->lr_number} updated successfully!");
+            $msg = ($wasScheduled && $isNowDispatched)
+                ? "🚀 Consignment {$shipment->shipment_number} has been officially DISPATCHED with LR #{$shipment->lr_number}!"
+                : "✓ Shipment {$shipment->shipment_number} updated successfully!";
+
+            return redirect()->route('shipments.index')->with('success', $msg);
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error("Failed to update shipment #{$id}: " . $e->getMessage(), [

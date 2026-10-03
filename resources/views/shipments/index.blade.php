@@ -27,7 +27,14 @@
 
         <div class="flex items-center gap-2.5 flex-wrap">
             <button
-                @click="openNewShipmentModal()"
+                @click="openNewShipmentModal('SCHEDULED')"
+                class="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold text-neutral-800 bg-[#F5F6F8] hover:bg-neutral-100 border border-neutral-200/80 shadow-2xs transition-all cursor-pointer active:scale-95"
+            >
+                <span>📅</span>
+                <span>Schedule Shipment</span>
+            </button>
+            <button
+                @click="openNewShipmentModal('DISPATCHED')"
                 class="flex items-center gap-1.5 px-5 py-2.5 rounded-full text-xs font-extrabold text-[#091315] bg-[#D7FF53] hover:bg-[#c8f043] border border-[#c8f043] shadow-2xs transition-all cursor-pointer active:scale-95"
             >
                 <span>+</span>
@@ -62,6 +69,16 @@
             >
                 <span>All Consignments</span>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-mono" :class="filterStatus === 'ALL' ? 'bg-neutral-800 text-[#D7FF53]' : 'bg-neutral-200 text-neutral-700'">{{ count($shipments) }}</span>
+            </button>
+
+            <button
+                type="button"
+                @click="filterStatus = 'SCHEDULED'"
+                :class="filterStatus === 'SCHEDULED' ? 'bg-[#091315] text-[#D7FF53] shadow-xs' : 'bg-[#F5F6F8] text-neutral-600 hover:text-neutral-900 border border-neutral-200/80'"
+                class="px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 font-display"
+            >
+                <span>📅 Scheduled</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono" :class="filterStatus === 'SCHEDULED' ? 'bg-neutral-800 text-[#D7FF53]' : 'bg-amber-100 text-amber-800'">{{ $shipments->where('status', 'SCHEDULED')->count() }}</span>
             </button>
 
             <button
@@ -145,14 +162,14 @@
                 <div class="p-4 pb-3 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2.5 min-w-0">
                         <div class="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 flex items-center justify-center text-sm shrink-0">
-                            🚚
+                            {{ $s->status === 'SCHEDULED' ? '📅' : '🚚' }}
                         </div>
                         <div class="min-w-0">
-                            <h4 class="font-bold text-xs text-slate-900 truncate" title="{{ $s->transporter }}">
-                                {{ $s->transporter }}
+                            <h4 class="font-bold text-xs text-slate-900 truncate" title="{{ $s->transporter ?: 'Awaiting Carrier' }}">
+                                {{ $s->transporter ?: 'Awaiting Carrier' }}
                             </h4>
                             <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
-                                <span>{{ $s->shipment_date->format('d M Y') }}</span>
+                                <span>{{ $s->status === 'SCHEDULED' ? 'Planned: ' : '' }}{{ $s->shipment_date->format('d M Y') }}</span>
                                 <span>•</span>
                                 <span class="font-mono text-slate-500">{{ $s->shipment_number }}</span>
                             </div>
@@ -165,11 +182,13 @@
                         :class="{
                             'bg-emerald-50 text-emerald-700 border-emerald-200': '{{ $s->status }}' === 'DELIVERED',
                             'bg-blue-50 text-blue-700 border-blue-200 animate-pulse': '{{ $s->status }}' === 'IN_TRANSIT',
-                            'bg-amber-50 text-amber-700 border-amber-200': '{{ $s->status }}' !== 'DELIVERED' && '{{ $s->status }}' !== 'IN_TRANSIT'
+                            'bg-amber-100/90 text-amber-900 border-amber-300 font-extrabold': '{{ $s->status }}' === 'SCHEDULED',
+                            'bg-slate-100 text-slate-700 border-slate-200': '{{ $s->status }}' !== 'DELIVERED' && '{{ $s->status }}' !== 'IN_TRANSIT' && '{{ $s->status }}' !== 'SCHEDULED'
                         }"
                     >
                         @if($s->status === 'DELIVERED') ✓ Delivered
                         @elseif($s->status === 'IN_TRANSIT') ⚡ In Transit
+                        @elseif($s->status === 'SCHEDULED') 📅 Scheduled
                         @else {{ $s->status }}
                         @endif
                     </span>
@@ -181,9 +200,16 @@
                     <div class="p-3 rounded-2xl bg-white border border-slate-200 flex items-center justify-between shadow-xs">
                         <div class="min-w-0">
                             <span class="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">LR / Bilty Number</span>
-                            <span class="font-mono font-black text-sm text-amber-400 block truncate">
-                                {{ $s->lr_number }}
-                            </span>
+                            @if($s->lr_number)
+                                <span class="font-mono font-black text-sm text-amber-500 block truncate">
+                                    {{ $s->lr_number }}
+                                </span>
+                            @else
+                                <span class="font-bold text-xs text-amber-700 flex items-center gap-1.5 py-0.5">
+                                    <span>⏳</span>
+                                    <span>Awaiting Truck & LR</span>
+                                </span>
+                            @endif
                         </div>
 
                         <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
@@ -290,7 +316,16 @@
                 <!-- Card Footer: Quick Actions -->
                 <div class="p-3 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-2">
                     <div>
-                        @if($s->lr_url)
+                        @if($s->status === 'SCHEDULED')
+                            <button
+                                type="button"
+                                @click="openConfirmDispatchModal(@js($s))"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black text-[#091315] bg-[#D7FF53] hover:bg-[#c8f043] border border-[#c8f043] shadow-2xs transition-all active:scale-95 cursor-pointer"
+                            >
+                                <span>🚀</span>
+                                <span>Confirm Dispatch</span>
+                            </button>
+                        @elseif($s->lr_url)
                             <a
                                 href="{{ $s->lr_url }}"
                                 target="_blank"
@@ -314,7 +349,7 @@
                             ✏️ Edit
                         </button>
 
-                        <form action="{{ route('shipments.destroy', $s->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete shipment {{ $s->lr_number }}? This will automatically restore dispatched quantities back to the PO.');">
+                        <form action="{{ route('shipments.destroy', $s->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete shipment {{ $s->lr_number ?: $s->shipment_number }}? This will automatically restore dispatched quantities back to the PO.');">
                             @csrf
                             <button
                                 type="submit"
@@ -365,9 +400,15 @@
                             <td class="p-4">
                                 <div class="space-y-1">
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="font-mono font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
-                                            {{ $s->lr_number }}
-                                        </span>
+                                        @if($s->lr_number)
+                                            <span class="font-mono font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
+                                                {{ $s->lr_number }}
+                                            </span>
+                                        @else
+                                            <span class="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                                                ⏳ Awaiting LR
+                                            </span>
+                                        @endif
                                         @php $lrDoc = $s->lrDocument; @endphp
                                         @if($lrDoc)
                                             <span class="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 bg-purple-50 text-purple-900 border border-purple-200 rounded-md">
@@ -390,7 +431,7 @@
                                         @endif
                                     </div>
                                     <div class="text-xs font-semibold text-slate-800 truncate" title="{{ $s->transporter }}">
-                                        {{ $s->transporter }}
+                                        {{ $s->transporter ?: 'Awaiting Transporter' }}
                                     </div>
                                     <div class="font-mono text-[10px] text-slate-400">
                                         {{ $s->shipment_number }}
@@ -473,14 +514,31 @@
                                         class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border"
                                         :class="{
                                             'bg-emerald-50 text-emerald-700 border-emerald-200': '{{ $s->status }}' === 'DELIVERED',
-                                            'bg-blue-50 text-blue-700 border-blue-200': '{{ $s->status }}' === 'IN_TRANSIT',
-                                            'bg-amber-50 text-amber-700 border-amber-200': '{{ $s->status }}' !== 'DELIVERED' && '{{ $s->status }}' !== 'IN_TRANSIT'
+                                            'bg-blue-50 text-blue-700 border-blue-200 animate-pulse': '{{ $s->status }}' === 'IN_TRANSIT',
+                                            'bg-amber-100/90 text-amber-900 border-amber-300 font-extrabold': '{{ $s->status }}' === 'SCHEDULED',
+                                            'bg-slate-100 text-slate-700 border-slate-200': '{{ $s->status }}' !== 'DELIVERED' && '{{ $s->status }}' !== 'IN_TRANSIT' && '{{ $s->status }}' !== 'SCHEDULED'
                                         }"
                                     >
-                                        {{ $s->status }}
+                                        @if($s->status === 'DELIVERED') ✓ Delivered
+                                        @elseif($s->status === 'IN_TRANSIT') ⚡ In Transit
+                                        @elseif($s->status === 'SCHEDULED') 📅 Scheduled
+                                        @else {{ $s->status }}
+                                        @endif
                                     </span>
 
-                                    <div class="flex items-center justify-center gap-1">
+                                    <div class="flex items-center justify-center gap-1 flex-wrap">
+                                        @if($s->status === 'SCHEDULED')
+                                            <button
+                                                type="button"
+                                                @click="openConfirmDispatchModal(@js($s))"
+                                                class="px-2 py-1 rounded-lg text-[10px] font-black bg-[#D7FF53] text-[#091315] hover:bg-[#c8f043] border border-[#c8f043] shadow-2xs cursor-pointer flex items-center gap-1 active:scale-95 transition-all"
+                                                title="Confirm vehicle arrival and enter LR"
+                                            >
+                                                <span>🚀</span>
+                                                <span>Dispatch</span>
+                                            </button>
+                                        @endif
+
                                         @if($s->lr_url)
                                             <a
                                                 href="{{ $s->lr_url }}"
@@ -501,7 +559,7 @@
                                             ✏️
                                         </button>
 
-                                        <form action="{{ route('shipments.destroy', $s->id) }}" method="POST" onsubmit="return confirm('Delete shipment {{ $s->lr_number }} and restore PO balances?');">
+                                        <form action="{{ route('shipments.destroy', $s->id) }}" method="POST" onsubmit="return confirm('Delete shipment {{ $s->lr_number ?: $s->shipment_number }} and restore PO balances?');">
                                             @csrf
                                             <button
                                                 type="submit"
@@ -533,12 +591,11 @@
             <div @click.outside="isNewShipmentOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-3xl overflow-hidden max-h-[92vh] flex flex-col text-xs">
                 <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
-                        <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center text-lg font-bold">
-                            🚚
+                        <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center text-lg font-bold" x-text="shipmentMode === 'SCHEDULED' ? '📅' : '🚚'">
                         </div>
                         <div>
-                            <h3 class="font-extrabold text-sm tracking-tight text-white font-display">Dispatch Material & Create LR</h3>
-                            <p class="text-[11px] text-[#D7FF53] font-mono">Combine items across POs • Choose PAID or TO PAY freight</p>
+                            <h3 class="font-extrabold text-sm tracking-tight text-white font-display" x-text="shipmentMode === 'SCHEDULED' ? 'Schedule Future Shipment (Planning)' : 'Dispatch Material & Create LR'"></h3>
+                            <p class="text-[11px] text-[#D7FF53] font-mono" x-text="shipmentMode === 'SCHEDULED' ? 'Reserve PO balance for agreed dispatch date • Assign LR on gate-out' : 'Combine items across POs • Choose PAID or TO PAY freight'"></p>
                         </div>
                     </div>
                     <button @click="isNewShipmentOpen = false" class="text-neutral-400 hover:text-white cursor-pointer">✕</button>
@@ -562,29 +619,58 @@
             @else
                 <form action="{{ route('shipments.store') }}" method="POST" enctype="multipart/form-data" class="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1" x-data="{ selectedLrFile: null }">
                     @csrf
+                    <input type="hidden" name="status" :value="shipmentMode">
+
+                    <!-- Workflow Mode Switcher -->
+                    <div class="p-1 bg-slate-100 rounded-2xl flex items-center gap-1 border border-slate-200">
+                        <button
+                            type="button"
+                            @click="shipmentMode = 'DISPATCHED'"
+                            :class="shipmentMode === 'DISPATCHED' ? 'bg-white text-slate-900 shadow-xs font-extrabold' : 'text-slate-600 hover:text-slate-900 font-semibold'"
+                            class="flex-1 py-2 px-3 rounded-xl text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                            <span>🚚</span>
+                            <span>Dispatch Now (With LR)</span>
+                        </button>
+                        <button
+                            type="button"
+                            @click="shipmentMode = 'SCHEDULED'"
+                            :class="shipmentMode === 'SCHEDULED' ? 'bg-[#091315] text-[#D7FF53] shadow-xs font-extrabold' : 'text-slate-600 hover:text-slate-900 font-semibold'"
+                            class="flex-1 py-2 px-3 rounded-xl text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                            <span>📅</span>
+                            <span>Schedule Future (Planning)</span>
+                        </button>
+                    </div>
 
                     <!-- Transporter Details -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Transporter *</label>
+                            <label class="block font-bold text-slate-700 mb-1">
+                                Transporter <span x-show="shipmentMode === 'DISPATCHED'">*</span> <span x-show="shipmentMode === 'SCHEDULED'" class="text-slate-400 font-normal">(Optional - TBD)</span>
+                            </label>
                             <div class="relative">
-    <input type="text" name="transporter" list="registeredTransportersList" placeholder="e.g. Mahalakshmi Transport, Patel Roadways..." class="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold text-slate-900" required>
-    <datalist id="registeredTransportersList">
-        @foreach($transporters as $t)
-            <option value="{{ $t->transporter_name }}">{{ $t->transporter_name }} {{ $t->transporter_id_gst ? "({$t->transporter_id_gst})" : '' }}</option>
-        @endforeach
-    </datalist>
-</div>
+                                <input type="text" name="transporter" list="registeredTransportersList" :placeholder="shipmentMode === 'SCHEDULED' ? 'TBD or Carrier Name' : 'e.g. Mahalakshmi Transport...'" class="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold text-slate-900" :required="shipmentMode === 'DISPATCHED'">
+                                <datalist id="registeredTransportersList">
+                                    @foreach($transporters as $t)
+                                        <option value="{{ $t->transporter_name }}">{{ $t->transporter_name }} {{ $t->transporter_id_gst ? "({$t->transporter_id_gst})" : '' }}</option>
+                                    @endforeach
+                                </datalist>
+                            </div>
                         </div>
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">LR / Bilty Number *</label>
-                            <input type="text" name="lr_number" placeholder="e.g. 2632801254" class="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold" required>
+                            <label class="block font-bold text-slate-700 mb-1">
+                                LR / Bilty Number <span x-show="shipmentMode === 'DISPATCHED'">*</span> <span x-show="shipmentMode === 'SCHEDULED'" class="text-slate-400 font-normal">(Optional - assign on dispatch)</span>
+                            </label>
+                            <input type="text" name="lr_number" :placeholder="shipmentMode === 'SCHEDULED' ? 'Leave blank or enter if ready' : 'e.g. 2632801254'" class="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold" :required="shipmentMode === 'DISPATCHED'">
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Dispatch Date *</label>
+                            <label class="block font-bold text-slate-700 mb-1">
+                                <span x-text="shipmentMode === 'SCHEDULED' ? 'Planned Dispatch Date *' : 'Dispatch Date *'"></span>
+                            </label>
                             <input type="date" name="shipment_date" value="{{ date('Y-m-d') }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg" required>
                         </div>
                         <div>
@@ -782,15 +868,135 @@
                         <button
                             type="submit"
                             :disabled="hasInvalidQuantities()"
-                            class="px-5 py-2 font-extrabold text-[#091315] bg-[#D7FF53] hover:bg-[#c8f043] disabled:opacity-50 disabled:cursor-not-allowed rounded-full shadow-2xs border border-[#c8f043] transition-all cursor-pointer"
+                            class="px-5 py-2 font-extrabold text-[#091315] bg-[#D7FF53] hover:bg-[#c8f043] disabled:opacity-50 disabled:cursor-not-allowed rounded-full shadow-2xs border border-[#c8f043] transition-all cursor-pointer flex items-center gap-1.5"
                         >
-                            Dispatch & Create LR
+                            <span x-text="shipmentMode === 'SCHEDULED' ? '📅 Save Scheduled Shipment Plan' : '🚚 Dispatch & Create LR'"></span>
                         </button>
                     </div>
                 </form>
             @endif
         </div>
     </div>
+    </template>
+
+    <!-- Confirm Dispatch Modal (Transition SCHEDULED to DISPATCHED) -->
+    <template x-teleport="body">
+        <div x-show="isConfirmDispatchOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isConfirmDispatchOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-xl overflow-hidden flex flex-col max-h-[92vh] text-xs">
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center text-lg font-bold">
+                            🚀
+                        </div>
+                        <div>
+                            <h3 class="font-extrabold text-sm tracking-tight text-white font-display">Confirm Dispatch & Assign LR</h3>
+                            <p class="text-[11px] text-[#D7FF53] font-mono" x-text="'Shipment: ' + (confirmShipment.shipment_number || '')"></p>
+                        </div>
+                    </div>
+                    <button @click="isConfirmDispatchOpen = false" class="text-neutral-400 hover:text-white cursor-pointer">✕</button>
+                </div>
+
+                <form :action="'/shipments/' + confirmShipment.id + '/update'" method="POST" enctype="multipart/form-data" class="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1" x-data="{ selectedConfirmDoc: null }">
+                    @csrf
+                    <input type="hidden" name="status" value="DISPATCHED">
+
+                    <div class="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 space-y-1">
+                        <div class="font-bold flex items-center gap-1.5 text-xs">
+                            <span>🚛</span>
+                            <span>Vehicle Placement & Factory Gate-Out</span>
+                        </div>
+                        <p class="text-[11px] text-amber-800">
+                            Confirm carrier LR / Bilty number and vehicle details. This marks the shipment as officially <b>DISPATCHED</b> and initiates delivery follow-up tracking.
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Transporter / Carrier *</label>
+                            <div class="relative">
+                                <input type="text" name="transporter" list="registeredTransportersList" x-model="confirmTransporter" placeholder="e.g. Mahalakshmi Transport" class="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold text-slate-900" required>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">LR / Bilty Number *</label>
+                            <input type="text" name="lr_number" x-model="confirmLrNumber" placeholder="e.g. 2632801254" class="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold" required>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Actual Dispatch Date *</label>
+                            <input type="date" name="shipment_date" x-model="confirmDispatchDate" class="w-full px-3 py-2 border border-slate-300 rounded-lg font-medium" required>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Truck / Vehicle No.</label>
+                            <input type="text" name="vehicle_number" x-model="confirmVehicle" placeholder="GJ-04-XX-1234" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Destination</label>
+                            <input type="text" name="destination" x-model="confirmDestination" placeholder="Consignee Godown" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                        </div>
+                    </div>
+
+                    <!-- Freight Mode in Confirm -->
+                    <div class="p-3 bg-[#F5F6F8] rounded-2xl border border-neutral-200/80 space-y-2">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-bold text-neutral-700 mb-1">Freight Mode *</label>
+                                <select name="freight_payment_type" x-model="confirmFreightType" class="w-full px-3 py-2 border border-neutral-200 bg-white rounded-xl font-bold focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
+                                    <option value="TO_PAY">TO PAY (Destination)</option>
+                                    <option value="PAID">PAID (Prepaid)</option>
+                                </select>
+                            </div>
+                            <div x-show="confirmFreightType === 'PAID'">
+                                <label class="block font-bold text-neutral-700 mb-1">Freight Amount (₹)</label>
+                                <input type="number" step="1" name="freight_amount" x-model="confirmFreightAmount" placeholder="e.g. 12000" class="w-full px-3 py-2 border border-neutral-200 bg-white rounded-xl font-bold focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LR Document Upload -->
+                    <div class="p-3 bg-[#F5F6F8] rounded-2xl border border-neutral-200/80 space-y-2">
+                        <label class="block font-bold text-neutral-800 text-xs">Attach LR / Bilty Document Copy</label>
+                        <div class="flex items-center gap-3">
+                            <label class="px-4 py-2 bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-300 rounded-xl font-bold text-xs cursor-pointer shadow-2xs inline-flex items-center gap-1.5 transition-all">
+                                <span>📎</span>
+                                <span>Choose LR Copy</span>
+                                <input 
+                                    type="file" 
+                                    name="lr_document" 
+                                    accept=".pdf,.jpg,.jpeg,.png,.webp,image/*" 
+                                    class="hidden" 
+                                    @change="selectedConfirmDoc = $event.target.files[0]"
+                                >
+                            </label>
+                            <template x-if="selectedConfirmDoc">
+                                <span class="font-mono text-neutral-700 font-bold truncate max-w-[200px]" x-text="selectedConfirmDoc.name"></span>
+                            </template>
+                            <template x-if="!selectedConfirmDoc">
+                                <span class="text-[11px] text-neutral-400 italic">Optional (Can upload later)</span>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Driver Details / Notes</label>
+                        <textarea name="notes" x-model="confirmNotes" rows="2" placeholder="Driver contact, godown door delivery instructions..." class="w-full p-2.5 border border-slate-300 rounded-lg"></textarea>
+                    </div>
+
+                    <div class="pt-3 border-t border-neutral-100 flex justify-end gap-2">
+                        <button type="button" @click="isConfirmDispatchOpen = false" class="px-5 py-2 font-bold text-neutral-600 hover:bg-neutral-100 rounded-full transition-colors cursor-pointer">Cancel</button>
+                        <button
+                            type="submit"
+                            class="px-5 py-2 font-extrabold text-[#091315] bg-[#D7FF53] hover:bg-[#c8f043] rounded-full shadow-2xs border border-[#c8f043] transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                            <span>🚀</span>
+                            <span>Confirm Dispatch Now</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </template>
 
     <!-- Edit Shipment Modal -->
@@ -846,6 +1052,7 @@
                     <div>
                         <label class="block font-bold text-neutral-700 mb-1">Status</label>
                         <select name="status" x-model="editShipment.status" class="w-full px-3 py-2 border border-neutral-200 bg-white rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
+                            <option value="SCHEDULED">Scheduled</option>
                             <option value="DISPATCHED">Dispatched</option>
                             <option value="IN_TRANSIT">In Transit</option>
                             <option value="DELIVERED">Delivered</option>
@@ -919,15 +1126,27 @@
                 }
                 return true;
             },
+            shipmentMode: 'DISPATCHED',
             isNewShipmentOpen: false,
             isEditModalOpen: false,
+            isConfirmDispatchOpen: false,
+            confirmShipment: {},
+            confirmDispatchDate: '{{ date("Y-m-d") }}',
+            confirmTransporter: '',
+            confirmLrNumber: '',
+            confirmVehicle: '',
+            confirmDestination: '',
+            confirmFreightType: 'TO_PAY',
+            confirmFreightAmount: '',
+            confirmNotes: '',
             editShipment: {},
             editShipmentDate: '',
             freightPaymentType: 'TO_PAY',
             freightAmount: '',
             newShipmentItems: [],
             availableList: availableList,
-            openNewShipmentModal() {
+            openNewShipmentModal(mode = 'DISPATCHED') {
+                this.shipmentMode = mode;
                 this.freightPaymentType = 'TO_PAY';
                 this.freightAmount = '';
                 if (this.availableList.length > 0) {
@@ -939,6 +1158,18 @@
                     this.newShipmentItems = [];
                 }
                 this.isNewShipmentOpen = true;
+            },
+            openConfirmDispatchModal(s) {
+                this.confirmShipment = s;
+                this.confirmDispatchDate = s.shipment_date ? s.shipment_date.substring(0, 10) : '{{ date("Y-m-d") }}';
+                this.confirmTransporter = (s.transporter && s.transporter !== 'TBD (To Be Decided)' && s.transporter !== 'TBD') ? s.transporter : '';
+                this.confirmLrNumber = s.lr_number || '';
+                this.confirmVehicle = s.vehicle_number || '';
+                this.confirmDestination = s.destination || '';
+                this.confirmFreightType = s.freight_payment_type || 'TO_PAY';
+                this.confirmFreightAmount = s.freight_amount || '';
+                this.confirmNotes = s.notes || '';
+                this.isConfirmDispatchOpen = true;
             },
             addShipmentItemRow() {
                 if (this.availableList.length > 0) {
