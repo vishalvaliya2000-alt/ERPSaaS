@@ -1334,7 +1334,7 @@
             openEditOrderModal(order) {
                 this.editOrder = order;
                 this.editRevisionReason = '';
-                this.editOrderDate = order.order_date ? order.order_date.substring(0, 10) : '{{ date("Y-m-d") }}';
+                this.editOrderDate = formatInputDate(order.order_date_formatted || order.order_date) || '{{ date("Y-m-d") }}';
                 this.editItems = order.items.map(it => ({
                     id: it.id,
                     product_id: it.product_id,

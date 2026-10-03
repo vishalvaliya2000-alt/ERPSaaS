@@ -1161,7 +1161,7 @@
             },
             openConfirmDispatchModal(s) {
                 this.confirmShipment = s;
-                this.confirmDispatchDate = s.shipment_date ? s.shipment_date.substring(0, 10) : '{{ date("Y-m-d") }}';
+                this.confirmDispatchDate = formatInputDate(s.shipment_date_formatted || s.shipment_date) || '{{ date("Y-m-d") }}';
                 this.confirmTransporter = (s.transporter && s.transporter !== 'TBD (To Be Decided)' && s.transporter !== 'TBD') ? s.transporter : '';
                 this.confirmLrNumber = s.lr_number || '';
                 this.confirmVehicle = s.vehicle_number || '';
@@ -1215,7 +1215,7 @@
             },
             openEditModal(shipment) {
                 this.editShipment = shipment;
-                this.editShipmentDate = shipment.shipment_date ? shipment.shipment_date.substring(0, 10) : '{{ date("Y-m-d") }}';
+                this.editShipmentDate = formatInputDate(shipment.shipment_date_formatted || shipment.shipment_date) || '{{ date("Y-m-d") }}';
                 this.isEditModalOpen = true;
             }
         }

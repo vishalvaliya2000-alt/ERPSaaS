@@ -45,6 +45,21 @@ class Invoice extends Model
         'balance_due' => 'decimal:2',
     ];
 
+    protected $appends = [
+        'invoice_date_formatted',
+        'due_date_formatted',
+    ];
+
+    public function getInvoiceDateFormattedAttribute(): string
+    {
+        return $this->invoice_date ? $this->invoice_date->format('Y-m-d') : '';
+    }
+
+    public function getDueDateFormattedAttribute(): string
+    {
+        return $this->due_date ? $this->due_date->format('Y-m-d') : '';
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class, 'customer_id');

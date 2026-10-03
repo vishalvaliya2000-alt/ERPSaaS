@@ -74,6 +74,20 @@
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
+    <!-- Global ERPSaaS Date Formatting Helper (Timezone-Safe for HTML Date Inputs) -->
+    <script>
+        window.formatInputDate = function(val) {
+            if (!val) return '';
+            if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+            const d = new Date(val);
+            if (isNaN(d.getTime())) return typeof val === 'string' ? val.substring(0, 10) : '';
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+    </script>
+
     <style>
         :root {
             --brand-primary: #091315;

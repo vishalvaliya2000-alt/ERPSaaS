@@ -1301,8 +1301,8 @@
 
             openEditModal(invoice, gstRate) {
                 this.editInvoice = invoice;
-                this.editInvoiceDate = invoice.invoice_date ? invoice.invoice_date.substring(0, 10) : '{{ date("Y-m-d") }}';
-                this.editDueDate = invoice.due_date ? invoice.due_date.substring(0, 10) : '{{ date("Y-m-d") }}';
+                this.editInvoiceDate = formatInputDate(invoice.invoice_date_formatted || invoice.invoice_date) || '{{ date("Y-m-d") }}';
+                this.editDueDate = formatInputDate(invoice.due_date_formatted || invoice.due_date) || '{{ date("Y-m-d") }}';
                 this.editSubtotal = invoice.material_subtotal > 0 ? invoice.material_subtotal : invoice.subtotal;
                 this.editFreight = invoice.freight_amount || 0;
                 this.editOtherCharges = 0;

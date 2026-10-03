@@ -50,6 +50,15 @@ class SalesOrder extends Model
         'balance_amount' => 'decimal:2',
     ];
 
+    protected $appends = [
+        'order_date_formatted',
+    ];
+
+    public function getOrderDateFormattedAttribute(): string
+    {
+        return $this->order_date ? $this->order_date->format('Y-m-d') : '';
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class, 'customer_id');

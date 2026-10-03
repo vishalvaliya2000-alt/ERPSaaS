@@ -40,6 +40,15 @@ class CommercialShipment extends Model
         'freight_amount' => 'decimal:2',
     ];
 
+    protected $appends = [
+        'shipment_date_formatted',
+    ];
+
+    public function getShipmentDateFormattedAttribute(): string
+    {
+        return $this->shipment_date ? $this->shipment_date->format('Y-m-d') : '';
+    }
+
     public function salesOrder(): BelongsTo
     {
         return $this->belongsTo(SalesOrder::class, 'sales_order_id');
