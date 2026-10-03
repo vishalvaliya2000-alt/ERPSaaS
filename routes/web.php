@@ -10,6 +10,7 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PipelineController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductDocumentController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\SampleController;
@@ -77,12 +78,30 @@ Route::middleware('auth')->group(function () {
     Route::post('/quotations/{id}/delete', [QuotationController::class, 'destroy'])->name('quotations.destroy');
     Route::post('/quotations/{id}/convert', [QuotationController::class, 'convert'])->name('quotations.convert');
 
-    // 6. Products Master (Create, Edit, Delete, HSN Lookup)
+    // 6. Products Master (Create, Edit, Delete, HSN Lookup, Documents & Media)
     Route::get('/api/hsn-lookup', [ProductController::class, 'hsnLookup'])->name('api.hsn.lookup');
     Route::get('/products', [ProductController::class, 'index'])->name('products.index');
     Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+    Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
     Route::post('/products/{id}/update', [ProductController::class, 'update'])->name('products.update');
     Route::post('/products/{id}/delete', [ProductController::class, 'destroy'])->name('products.destroy');
+
+    // Product Documents & Media Management
+    Route::get('/api/products/{id}/documents', [ProductDocumentController::class, 'getDocuments'])->name('products.documents.api');
+    Route::post('/products/{id}/photos/upload', [ProductDocumentController::class, 'uploadPhotos'])->name('products.photos.upload');
+    Route::post('/products/{id}/documents/upload', [ProductDocumentController::class, 'uploadDocument'])->name('products.documents.upload');
+    Route::post('/products/{id}/photos/{docId}/set-primary', [ProductDocumentController::class, 'setPrimaryPhoto'])->name('products.photos.set-primary');
+    Route::post('/products/{id}/photos/reorder', [ProductDocumentController::class, 'reorderPhotos'])->name('products.photos.reorder');
+    Route::post('/products/{id}/documents/{docId}/toggle-latest', [ProductDocumentController::class, 'toggleLatest'])->name('products.documents.toggle-latest');
+    Route::get('/products/{productId}/documents/{docId}/preview', [ProductDocumentController::class, 'preview'])->name('products.documents.preview');
+    Route::get('/products/{productId}/documents/{docId}/download', [ProductDocumentController::class, 'download'])->name('products.documents.download');
+    Route::get('/products/{productId}/documents/download-all', [ProductDocumentController::class, 'downloadAllZip'])->name('products.documents.download-all');
+    Route::post('/products/{productId}/documents/{docId}/delete', [ProductDocumentController::class, 'destroy'])->name('products.documents.destroy');
+    Route::delete('/products/{productId}/documents/{docId}', [ProductDocumentController::class, 'destroy'])->name('products.documents.delete');
+
+    // Document Sharing API
+    Route::post('/products/{productId}/documents/share', [ProductDocumentController::class, 'createShare'])->name('products.documents.share.create');
+    Route::delete('/products/{productId}/documents/share/{shareId}', [ProductDocumentController::class, 'deleteShare'])->name('products.documents.share.delete');
 
     // 7. Sales Orders & Partial Dispatches (Create, Edit, Delete, Revisions)
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
@@ -157,3 +176,11 @@ Route::middleware('auth')->group(function () {
     // 13. Global Search API
     Route::get('/search', [SearchController::class, 'search'])->name('search');
 });
+
+// Public Document Sharing Portal (No Authentication Required, Optional PIN)
+Route::get('/shared/products/{shareToken}', [ProductDocumentController::class, 'viewShared'])->name('products.documents.shared');
+Route::post('/shared/products/{shareToken}/verify', [ProductDocumentController::class, 'verifySharePassword'])->name('products.documents.shared.verify');
+Route::get('/shared/products/{shareToken}/download/{docId}', [ProductDocumentController::class, 'downloadSharedDocument'])->name('products.documents.shared.download');
+Route::get('/shared/products/{shareToken}/preview/{docId}', [ProductDocumentController::class, 'previewSharedDocument'])->name('products.documents.shared.preview');
+Route::get('/shared/products/{shareToken}/download-all', [ProductDocumentController::class, 'downloadSharedZip'])->name('products.documents.shared.download-all');
+

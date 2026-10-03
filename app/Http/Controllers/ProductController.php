@@ -212,7 +212,7 @@ class ProductController extends Controller
         $category = $request->query('category', 'ALL');
         $search = $request->query('q', '');
 
-        $query = Product::with(['category', 'orderItems'])->orderBy('product_code');
+        $query = Product::with(['category', 'orderItems', 'documents'])->orderBy('product_code');
 
         if ($category !== 'ALL') {
             $query->whereHas('category', fn ($q) => $q->where('slug', strtolower($category)));
@@ -230,6 +230,15 @@ class ProductController extends Controller
         $categories = ProductCategory::all();
 
         return view('products.index', compact('products', 'categories', 'category', 'search'));
+    }
+
+    public function show($id)
+    {
+        $product = Product::with(['category', 'documents.createdByUser', 'shares'])->findOrFail($id);
+        $categories = ProductCategory::all();
+        $photos = $product->documents->where('document_type', \App\Models\ProductDocument::TYPE_PHOTO)->sortBy('sort_order')->values();
+        $documents = $product->documents->where('document_type', '!=', \App\Models\ProductDocument::TYPE_PHOTO)->sortBy(fn($d) => [$d->document_type, !$d->is_latest, -$d->id])->values();
+        return view('products.show', compact('product', 'categories', 'photos', 'documents'));
     }
 
     /**
