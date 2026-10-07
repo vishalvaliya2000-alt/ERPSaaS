@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AssistantController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CreditDebitNoteController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
@@ -127,6 +128,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/invoices/{id}/update', [InvoiceController::class, 'update'])->name('invoices.update');
     Route::post('/invoices/{id}/delete', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
     Route::post('/invoices/receipt', [InvoiceController::class, 'storeReceipt'])->name('invoices.receipt');
+
+    // Credit Notes & Debit Notes (Sales Returns, Shortages, Rate Revisions)
+    Route::get('/credit-debit-notes', [CreditDebitNoteController::class, 'index'])->name('credit-debit-notes.index');
+    Route::post('/credit-debit-notes', [CreditDebitNoteController::class, 'store'])->name('credit-debit-notes.store');
+    Route::get('/credit-debit-notes/{id}', [CreditDebitNoteController::class, 'show'])->name('credit-debit-notes.show');
+    Route::get('/credit-debit-notes/{id}/print', [CreditDebitNoteController::class, 'print'])->name('credit-debit-notes.print');
+    Route::post('/credit-debit-notes/{id}/cancel', [CreditDebitNoteController::class, 'cancel'])->name('credit-debit-notes.cancel');
+    Route::get('/api/invoices/{id}/details', [CreditDebitNoteController::class, 'apiGetInvoice'])->name('api.invoices.details');
 
     // Document File Handling (Direct View & Download from Transactions)
     Route::redirect('/documents', '/')->name('documents.index');

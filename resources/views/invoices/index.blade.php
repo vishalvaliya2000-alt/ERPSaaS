@@ -40,6 +40,10 @@
                 <span>💳</span>
                 <span>Payment Receipt</span>
             </button>
+            <a href="{{ route('credit-debit-notes.index') }}" class="px-4 py-2.5 rounded-full text-xs font-bold text-neutral-800 bg-[#F5F6F8] hover:bg-neutral-100 border border-neutral-200/80 shadow-2xs transition-all flex items-center gap-1.5">
+                <span>📑</span>
+                <span>Credit & Debit Notes</span>
+            </a>
             <a href="{{ route('excel.export') }}" class="px-4 py-2.5 rounded-full text-xs font-bold text-neutral-800 bg-[#F5F6F8] hover:bg-neutral-100 border border-neutral-200/80 shadow-2xs transition-all flex items-center gap-1.5">
                 <span>📊</span>
                 <span>Export Excel</span>
@@ -353,6 +357,14 @@
                         >
                             <span>📄</span>
                             <span>PDF</span>
+                        </a>
+                        <a
+                            href="{{ route('credit-debit-notes.index') }}?q={{ urlencode($inv->invoice_number) }}"
+                            class="px-2.5 py-1.5 rounded-full text-xs font-bold text-neutral-800 bg-white hover:bg-neutral-100 border border-neutral-200/80 shadow-2xs transition-colors flex items-center gap-1"
+                            title="Credit / Debit Notes linked to this Invoice"
+                        >
+                            <span>📑</span>
+                            <span>Note</span>
                         </a>
                         @if(!$hasPayments)
                             <button

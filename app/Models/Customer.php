@@ -177,6 +177,11 @@ class Customer extends Model
         return (float) $this->salesOrderItems()->sum('balance_qty');
     }
 
+    public function creditDebitNotes(): HasMany
+    {
+        return $this->hasMany(CreditDebitNote::class, 'customer_id');
+    }
+
     public function getFulfillmentPercentageAttribute(): float
     {
         $ordered = $this->total_ordered_qty;
@@ -184,3 +189,4 @@ class Customer extends Model
         return round(($this->total_supplied_qty / $ordered) * 100, 1);
     }
 }
+

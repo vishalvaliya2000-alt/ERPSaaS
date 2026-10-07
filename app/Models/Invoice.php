@@ -113,6 +113,41 @@ class Invoice extends Model
             });
     }
 
+    public function creditDebitNotes(): HasMany
+    {
+        return $this->hasMany(CreditDebitNote::class, 'invoice_id');
+    }
+
+    public function creditNotes(): HasMany
+    {
+        return $this->hasMany(CreditDebitNote::class, 'invoice_id')
+            ->whereIn('note_type', ['CREDIT_NOTE', 'CREDIT'])
+            ->where('status', '!=', 'CANCELLED');
+    }
+
+    public function debitNotes(): HasMany
+    {
+        return $this->hasMany(CreditDebitNote::class, 'invoice_id')
+            ->whereIn('note_type', ['DEBIT_NOTE', 'DEBIT'])
+            ->where('status', '!=', 'CANCELLED');
+    }
+
+    public function getTotalCreditedAmountAttribute(): float
+    {
+        return (float) $this->creditNotes()->sum('total_amount');
+    }
+
+    public function getTotalDebitedAmountAttribute(): float
+    {
+        return (float) $this->debitNotes()->sum('total_amount');
+    }
+
+    public function getAdjustedBalanceDueAttribute(): float
+    {
+        $net = (float) $this->balance_due - $this->total_credited_amount + $this->total_debited_amount;
+        return max(0.00, round($net, 2));
+    }
+
     public function getDisplayPoNumbersAttribute(): string
     {
         if (!empty($this->linked_po_numbers)) {
@@ -127,3 +162,4 @@ class Invoice extends Model
         return 'Direct Invoice';
     }
 }
+
