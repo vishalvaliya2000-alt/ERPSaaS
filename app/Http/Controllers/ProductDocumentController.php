@@ -17,9 +17,9 @@ use ZipArchive;
 
 class ProductDocumentController extends Controller
 {
-    private function getStorageDisk(): string
+    private function getStorageDisk(?string $path = null): string
     {
-        return config('filesystems.default') === 's3' ? 's3' : 'public';
+        return $path ? resolveStorageDiskForFile($path) : appStorageDisk();
     }
 
     /**
@@ -384,7 +384,7 @@ class ProductDocumentController extends Controller
         $product = Product::findOrFail($productId);
         $doc = ProductDocument::where('product_id', $product->id)->findOrFail($docId);
 
-        $disk = $this->getStorageDisk();
+        $disk = $this->getStorageDisk($doc->file_path);
         if (!Storage::disk($disk)->exists($doc->file_path)) {
             abort(404, 'File not found on storage.');
         }
@@ -407,12 +407,13 @@ class ProductDocumentController extends Controller
         $product = Product::findOrFail($productId);
         $doc = ProductDocument::where('product_id', $product->id)->findOrFail($docId);
 
-        $disk = $this->getStorageDisk();
+        $disk = $this->getStorageDisk($doc->file_path);
         if (!Storage::disk($disk)->exists($doc->file_path)) {
             abort(404, 'File not found on storage.');
         }
 
         return Storage::disk($disk)->download($doc->file_path, $doc->file_name);
+
     }
 
     /**
@@ -438,8 +439,9 @@ class ProductDocumentController extends Controller
 
         $addedNames = [];
         foreach ($docs as $doc) {
-            if (Storage::disk($disk)->exists($doc->file_path)) {
-                $content = Storage::disk($disk)->get($doc->file_path);
+            $docDisk = $this->getStorageDisk($doc->file_path);
+            if (Storage::disk($docDisk)->exists($doc->file_path)) {
+                $content = Storage::disk($docDisk)->get($doc->file_path);
                 
                 // Group inside folders in the ZIP: Photos, COA, Specifications, MSDS, Other
                 $folder = match ($doc->document_type) {
@@ -481,7 +483,7 @@ class ProductDocumentController extends Controller
         $product = Product::findOrFail($productId);
         $doc = ProductDocument::where('product_id', $product->id)->findOrFail($docId);
 
-        $disk = $this->getStorageDisk();
+        $disk = $this->getStorageDisk($doc->file_path);
         $wasPrimary = $doc->is_primary;
         $isPhoto = $doc->document_type === ProductDocument::TYPE_PHOTO;
 
@@ -684,7 +686,7 @@ class ProductDocumentController extends Controller
         }
 
         $doc = ProductDocument::where('product_id', $share->product_id)->findOrFail($docId);
-        $disk = $this->getStorageDisk();
+        $disk = $this->getStorageDisk($doc->file_path);
 
         if (!Storage::disk($disk)->exists($doc->file_path)) {
             abort(404, 'File not found on storage.');
@@ -712,7 +714,7 @@ class ProductDocumentController extends Controller
         }
 
         $doc = ProductDocument::where('product_id', $share->product_id)->findOrFail($docId);
-        $disk = $this->getStorageDisk();
+        $disk = $this->getStorageDisk($doc->file_path);
 
         if (!Storage::disk($disk)->exists($doc->file_path)) {
             abort(404, 'File not found on storage.');
@@ -749,7 +751,6 @@ class ProductDocumentController extends Controller
             abort(404, 'No documents available to download.');
         }
 
-        $disk = $this->getStorageDisk();
         $zipFileName = Str::slug($product->product_code ?: $product->product_name) . '_Documentation.zip';
         $tempZipPath = tempnam(sys_get_temp_dir(), 'shared_zip_');
 
@@ -760,8 +761,9 @@ class ProductDocumentController extends Controller
 
         $addedNames = [];
         foreach ($docs as $doc) {
-            if (Storage::disk($disk)->exists($doc->file_path)) {
-                $content = Storage::disk($disk)->get($doc->file_path);
+            $docDisk = $this->getStorageDisk($doc->file_path);
+            if (Storage::disk($docDisk)->exists($doc->file_path)) {
+                $content = Storage::disk($docDisk)->get($doc->file_path);
                 
                 $folder = match ($doc->document_type) {
                     ProductDocument::TYPE_PHOTO => 'Photos',

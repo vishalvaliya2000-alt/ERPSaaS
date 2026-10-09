@@ -98,7 +98,8 @@ class DocumentController extends Controller
             $storageFilename = "doc_{$tenantId}_{$validated['document_type']}_{$safeDocNum}_" . time() . '.' . $ext;
             
             // Store file securely
-            $storedPath = $file->storeAs("documents/{$tenantId}", $storageFilename, 'public');
+            $disk = appStorageDisk();
+            $storedPath = $file->storeAs("documents/{$tenantId}", $storageFilename, $disk);
 
             // 1. Create BusinessDocument Master Record
             $document = BusinessDocument::create([
@@ -276,14 +277,20 @@ class DocumentController extends Controller
         }
 
         $path = $version->file_path;
-        if (!Storage::disk('public')->exists($path)) {
+        $disk = resolveStorageDiskForFile($path);
+        if (!Storage::disk($disk)->exists($path)) {
             abort(404, 'Document file not found in storage.');
         }
 
-        $filePath = Storage::disk('public')->path($path);
-        $mime = $version->mime_type ?: Storage::disk('public')->mimeType($path);
+        $mime = $version->mime_type ?: Storage::disk($disk)->mimeType($path);
+        $stream = Storage::disk($disk)->readStream($path);
 
-        return response()->file($filePath, [
+        return response()->stream(function () use ($stream) {
+            fpassthru($stream);
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }, 200, [
             'Content-Type' => $mime,
             'Content-Disposition' => 'inline; filename="' . addslashes($version->file_name) . '"',
         ]);
@@ -305,11 +312,12 @@ class DocumentController extends Controller
         }
 
         $path = $version->file_path;
-        if (!Storage::disk('public')->exists($path)) {
+        $disk = resolveStorageDiskForFile($path);
+        if (!Storage::disk($disk)->exists($path)) {
             abort(404, 'Document file not found in storage.');
         }
 
-        return Storage::disk('public')->download($path, $version->file_name);
+        return Storage::disk($disk)->download($path, $version->file_name);
     }
 
     /**
@@ -332,7 +340,8 @@ class DocumentController extends Controller
         $safeDocNum = Str::slug($doc->document_number, '_');
         $storageFilename = "doc_{$tenantId}_{$doc->document_type}_{$safeDocNum}_v{$nextVersion}_" . time() . '.' . $ext;
 
-        $storedPath = $file->storeAs("documents/{$tenantId}", $storageFilename, 'public');
+        $disk = appStorageDisk();
+        $storedPath = $file->storeAs("documents/{$tenantId}", $storageFilename, $disk);
 
         try {
             DB::transaction(function () use ($doc, $file, $originalName, $storedPath, $nextVersion, $request) {
@@ -358,6 +367,7 @@ class DocumentController extends Controller
 
             return back()->with('success', "✓ Version {$nextVersion} of {$doc->type_label} #{$doc->document_number} uploaded successfully!");
         } catch (\Throwable $e) {
+            Storage::disk($disk)->delete($storedPath);
             Log::error("Failed to upload new version for document #{$id}: " . $e->getMessage(), [
                 'exception' => $e,
             ]);
@@ -378,8 +388,9 @@ class DocumentController extends Controller
             DB::transaction(function () use ($doc) {
                 // Remove files from storage
                 foreach ($doc->versions as $v) {
-                    if (Storage::disk('public')->exists($v->file_path)) {
-                        Storage::disk('public')->delete($v->file_path);
+                    $disk = resolveStorageDiskForFile($v->file_path);
+                    if (Storage::disk($disk)->exists($v->file_path)) {
+                        Storage::disk($disk)->delete($v->file_path);
                     }
                 }
                 $doc->delete();

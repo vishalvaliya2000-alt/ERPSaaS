@@ -162,13 +162,17 @@ class ProductDocument extends Model
 
     public function getStorageDisk(): string
     {
-        return config('filesystems.default') === 's3' ? 's3' : 'public';
+        return resolveStorageDiskForFile($this->file_path);
     }
 
     public function getFileUrlAttribute(): string
     {
         $disk = $this->getStorageDisk();
-        return Storage::disk($disk)->url($this->file_path);
+        try {
+            return Storage::disk($disk)->url($this->file_path);
+        } catch (\Throwable $e) {
+            return route('products.documents.preview', ['productId' => $this->product_id, 'docId' => $this->id]);
+        }
     }
 
     public function getDownloadUrlAttribute(): string

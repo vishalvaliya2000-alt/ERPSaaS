@@ -60,6 +60,21 @@ return [
             'report' => false,
         ],
 
+        'b2' => [
+            'driver' => 's3',
+            'key' => env('B2_APPLICATION_KEY_ID', env('AWS_ACCESS_KEY_ID')),
+            'secret' => env('B2_APPLICATION_KEY', env('AWS_SECRET_ACCESS_KEY')),
+            'region' => env('B2_REGION', env('AWS_DEFAULT_REGION', 'us-west-004')),
+            'bucket' => env('B2_BUCKET', env('AWS_BUCKET')),
+            'url' => env('B2_URL', env('AWS_URL')),
+            'endpoint' => env('B2_ENDPOINT', env('AWS_ENDPOINT')),
+            'use_path_style_endpoint' => env('B2_USE_PATH_STYLE_ENDPOINT', env('AWS_USE_PATH_STYLE_ENDPOINT', false)),
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
+
     ],
 
     /*

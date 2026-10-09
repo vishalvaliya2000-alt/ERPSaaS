@@ -63,19 +63,23 @@ class TenantController extends Controller
         try {
             // 1. Handle Logo Upload or Removal
             if ($request->boolean('remove_logo')) {
-                if ($tenant->logo_url && Storage::disk('public')->exists(str_replace('storage/', '', $tenant->logo_url))) {
-                    Storage::disk('public')->delete(str_replace('storage/', '', $tenant->logo_url));
+                if ($tenant->logo_url) {
+                    $relativeLogo = str_replace('storage/', '', $tenant->logo_url);
+                    $disk = resolveStorageDiskForFile($relativeLogo);
+                    if (Storage::disk($disk)->exists($relativeLogo)) {
+                        Storage::disk($disk)->delete($relativeLogo);
+                    }
                 }
                 $tenant->logo_url = null;
             } elseif ($request->hasFile('logo')) {
                 $file = $request->file('logo');
-                $path = $file->store('logos', 'public');
-                $tenant->logo_url = 'storage/' . $path;
+                $disk = appStorageDisk();
+                $path = $file->store('logos', $disk);
+                $tenant->logo_url = $disk === 'public' ? ('storage/' . $path) : Storage::disk($disk)->url($path);
 
                 // If user didn't explicitly specify custom colors, auto-extract from newly uploaded logo
                 if (!$request->filled('primary_color')) {
-                    $fullPath = storage_path('app/public/' . $path);
-                    $extracted = ColorPaletteService::extractFromImage($fullPath);
+                    $extracted = ColorPaletteService::extractFromImage($file->getPathname());
                     $validated['primary_color'] = $extracted['primary_color'];
                     $validated['accent_color'] = $extracted['accent_color'];
                 }

@@ -683,22 +683,40 @@ class InvoiceController extends Controller
     {
         $invoice = Invoice::with(['customer', 'salesOrder', 'commercialShipment', 'items.product', 'invoiceDocument.activeVersion'])->findOrFail($id);
 
-        if ($invoice->invoiceDocument?->activeVersion && \Illuminate\Support\Facades\Storage::disk('public')->exists($invoice->invoiceDocument->activeVersion->file_path)) {
-            $path = \Illuminate\Support\Facades\Storage::disk('public')->path($invoice->invoiceDocument->activeVersion->file_path);
-            return response()->file($path, [
-                'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'inline; filename="Tax_Invoice_' . $invoice->invoice_number . '.pdf"',
-            ]);
+        $activeFilePath = $invoice->invoiceDocument?->activeVersion?->file_path;
+        if ($activeFilePath) {
+            $disk = resolveStorageDiskForFile($activeFilePath);
+            if (\Illuminate\Support\Facades\Storage::disk($disk)->exists($activeFilePath)) {
+                $stream = \Illuminate\Support\Facades\Storage::disk($disk)->readStream($activeFilePath);
+                return response()->stream(function () use ($stream) {
+                    fpassthru($stream);
+                    if (is_resource($stream)) {
+                        fclose($stream);
+                    }
+                }, 200, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="Tax_Invoice_' . $invoice->invoice_number . '.pdf"',
+                ]);
+            }
         }
 
         // Generate and store if not exists yet
         $doc = $this->documentService->generateAndStoreInvoicePdf($invoice);
-        if ($doc && $doc->activeVersion && \Illuminate\Support\Facades\Storage::disk('public')->exists($doc->activeVersion->file_path)) {
-            $path = \Illuminate\Support\Facades\Storage::disk('public')->path($doc->activeVersion->file_path);
-            return response()->file($path, [
-                'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'inline; filename="Tax_Invoice_' . $invoice->invoice_number . '.pdf"',
-            ]);
+        if ($doc && $doc->activeVersion) {
+            $path = $doc->activeVersion->file_path;
+            $disk = resolveStorageDiskForFile($path);
+            if (\Illuminate\Support\Facades\Storage::disk($disk)->exists($path)) {
+                $stream = \Illuminate\Support\Facades\Storage::disk($disk)->readStream($path);
+                return response()->stream(function () use ($stream) {
+                    fpassthru($stream);
+                    if (is_resource($stream)) {
+                        fclose($stream);
+                    }
+                }, 200, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="Tax_Invoice_' . $invoice->invoice_number . '.pdf"',
+                ]);
+            }
         }
 
         // Direct fallback stream

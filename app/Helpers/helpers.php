@@ -89,3 +89,55 @@ if (!function_exists('getPriorityBadge')) {
         };
     }
 }
+
+if (!function_exists('appStorageDisk')) {
+    /**
+     * Resolve the active storage disk (b2, s3, or local public).
+     * Falls back safely to 'public' if cloud storage credentials are not yet configured.
+     */
+    function appStorageDisk(): string
+    {
+        $default = config('filesystems.default', 'local');
+        if (in_array($default, ['b2', 's3'])) {
+            $key = config("filesystems.disks.{$default}.key");
+            if (!empty($key)) {
+                return $default;
+            }
+        }
+        return 'public';
+    }
+}
+
+if (!function_exists('resolveStorageDiskForFile')) {
+    /**
+     * Check active disk first; if file is not found (e.g., pre-migration), check local 'public' disk.
+     */
+    function resolveStorageDiskForFile(?string $path): string
+    {
+        $primaryDisk = appStorageDisk();
+        if (empty($path)) {
+            return $primaryDisk;
+        }
+
+        try {
+            if (\Illuminate\Support\Facades\Storage::disk($primaryDisk)->exists($path)) {
+                return $primaryDisk;
+            }
+        } catch (\Throwable $e) {
+            // Cloud connectivity or config issue; try local
+        }
+
+        if ($primaryDisk !== 'public') {
+            try {
+                if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+                    return 'public';
+                }
+            } catch (\Throwable $e) {
+                // Ignore
+            }
+        }
+
+        return $primaryDisk;
+    }
+}
+

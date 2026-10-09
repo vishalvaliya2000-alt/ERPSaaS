@@ -63,7 +63,8 @@ class DocumentTransactionService
         $safePoNum = Str::slug($poNumber, '_');
         $storageFilename = "doc_{$tenantId}_PO_{$safePoNum}_" . time() . '.' . $ext;
 
-        $storedPath = $file->storeAs("documents/{$tenantId}", $storageFilename, 'public');
+        $disk = appStorageDisk();
+        $storedPath = $file->storeAs("documents/{$tenantId}", $storageFilename, $disk);
 
         try {
             $document = BusinessDocument::create([
@@ -105,7 +106,7 @@ class DocumentTransactionService
 
             return $document;
         } catch (\Throwable $e) {
-            Storage::disk('public')->delete($storedPath);
+            Storage::disk($disk)->delete($storedPath);
             throw $e;
         }
     }
@@ -136,7 +137,8 @@ class DocumentTransactionService
         $safeLrNum = Str::slug($lrNumber, '_');
         $storageFilename = "doc_{$tenantId}_LR_{$safeLrNum}_" . time() . '.' . $ext;
 
-        $storedPath = $file->storeAs("documents/{$tenantId}", $storageFilename, 'public');
+        $disk = appStorageDisk();
+        $storedPath = $file->storeAs("documents/{$tenantId}", $storageFilename, $disk);
 
         try {
             $document = BusinessDocument::create([
@@ -180,7 +182,7 @@ class DocumentTransactionService
 
             return $document;
         } catch (\Throwable $e) {
-            Storage::disk('public')->delete($storedPath);
+            Storage::disk($disk)->delete($storedPath);
             throw $e;
         }
     }
@@ -198,7 +200,8 @@ class DocumentTransactionService
         $safeInvNum = Str::slug($invNumber, '_');
         $storageFilename = "doc_{$tenantId}_INV_{$safeInvNum}_supp_" . time() . '.' . $ext;
 
-        $storedPath = $file->storeAs("documents/{$tenantId}", $storageFilename, 'public');
+        $disk = appStorageDisk();
+        $storedPath = $file->storeAs("documents/{$tenantId}", $storageFilename, $disk);
 
         try {
             $document = BusinessDocument::create([
@@ -241,7 +244,7 @@ class DocumentTransactionService
 
             return $document;
         } catch (\Throwable $e) {
-            Storage::disk('public')->delete($storedPath);
+            Storage::disk($disk)->delete($storedPath);
             throw $e;
         }
     }
@@ -265,7 +268,8 @@ class DocumentTransactionService
         $storageFilename = "doc_{$tenantId}_INVOICE_{$safeInvNum}_official.pdf";
         $storedPath = "documents/{$tenantId}/{$storageFilename}";
 
-        Storage::disk('public')->put($storedPath, $pdfContent);
+        $disk = appStorageDisk();
+        Storage::disk($disk)->put($storedPath, $pdfContent);
         $fileSize = strlen($pdfContent);
         $fileName = "Tax_Invoice_{$invNumber}.pdf";
 
