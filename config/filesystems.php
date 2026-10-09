@@ -58,6 +58,9 @@ return [
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'throw' => false,
             'report' => false,
+            'http' => [
+                'verify' => env('AWS_CA_BUNDLE', class_exists(\Composer\CaBundle\CaBundle::class) ? \Composer\CaBundle\CaBundle::getSystemCaRootBundlePath() : true),
+            ],
         ],
 
         'b2' => [
@@ -72,7 +75,11 @@ return [
             'visibility' => 'private',
             'throw' => false,
             'report' => false,
+            'http' => [
+                'verify' => env('B2_CA_BUNDLE', env('AWS_CA_BUNDLE', class_exists(\Composer\CaBundle\CaBundle::class) ? \Composer\CaBundle\CaBundle::getSystemCaRootBundlePath() : true)),
+            ],
         ],
+
 
 
     ],
