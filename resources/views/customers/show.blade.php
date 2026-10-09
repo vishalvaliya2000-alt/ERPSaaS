@@ -3,7 +3,7 @@
 @section('title', 'Customer 360 — ' . ($customer->company_name ?? 'Account Details'))
 
 @section('content')
-<div class="space-y-6 pb-12" x-data='{ tab: "overview", whatsappOpen: false, isQuoteModalOpen: false, isSampleModalOpen: false, noteText: "", msg: "Hi {{ $customer->primary_contact_person ?: $customer->company_name }}, following up regarding our open dehydrated garlic & onion orders and upcoming requirements. Please let me know your schedule." }'>
+<div class="space-y-6 pb-12" x-data='{ tab: "overview", whatsappOpen: false, isQuoteModalOpen: false, isSampleModalOpen: false, isEditCustomerOpen: false, noteText: "", msg: "Hi {{ $customer->primary_contact_person ?: $customer->company_name }}, following up regarding our open dehydrated garlic & onion orders and upcoming requirements. Please let me know your schedule." }'>
     <!-- Breadcrumb & Header -->
     <div class="flex items-center gap-2 text-xs text-neutral-500 font-medium">
         <a href="{{ route('customers.index') }}" class="px-3 py-1 rounded-full bg-white hover:bg-neutral-100 text-neutral-700 font-bold border border-neutral-200/80 shadow-2xs transition-all flex items-center gap-1.5">
@@ -68,6 +68,14 @@
                         <span>Call ({{ $customer->primary_contact_person }})</span>
                     </a>
                 @endif
+                <button
+                    type="button"
+                    @click="isEditCustomerOpen = true"
+                    class="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold text-neutral-800 bg-[#F5F6F8] hover:bg-neutral-100 border border-neutral-200/80 shadow-2xs transition-all cursor-pointer"
+                >
+                    <span>✏️</span>
+                    <span>Edit Terms & Profile</span>
+                </button>
             </div>
         </div>
 
@@ -916,6 +924,109 @@
                         <button type="button" @click="isSampleModalOpen = false" class="px-4 py-2 font-bold text-neutral-600 hover:bg-neutral-100 rounded-full cursor-pointer">Cancel</button>
                         <button type="submit" class="px-5 py-2 font-extrabold text-[#091315] bg-[#D7FF53] hover:bg-[#c8f043] rounded-full shadow-2xs cursor-pointer flex items-center gap-1.5 border border-[#c8f043]">
                             <span>🚀 Dispatch Sample</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    <!-- Edit Customer & Credit Terms Modal -->
+    <template x-teleport="body">
+        <div x-show="isEditCustomerOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+            <div @click.outside="isEditCustomerOpen = false" class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-neutral-200/80 w-full max-w-lg overflow-hidden flex flex-col text-xs max-h-[92vh]" x-data="{ creditDays: {{ (int)($customer->payment_terms_days ?? 30) }} }">
+                <!-- Modal Header -->
+                <div class="p-4 sm:p-5 bg-[#091315] text-white flex items-center justify-between shrink-0">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-2xl bg-[#D7FF53]/20 border border-[#D7FF53]/30 text-[#D7FF53] flex items-center justify-center text-lg font-bold">
+                            ✏️
+                        </div>
+                        <div>
+                            <h3 class="font-extrabold text-sm tracking-tight text-white font-display">Edit Customer Profile & Terms</h3>
+                            <p class="text-[11px] text-[#D7FF53] font-mono">{{ $customer->customer_code }} · {{ $customer->company_name }}</p>
+                        </div>
+                    </div>
+                    <button @click="isEditCustomerOpen = false" class="text-neutral-400 hover:text-white text-base cursor-pointer">✕</button>
+                </div>
+
+                <form action="{{ route('customers.update', $customer->id) }}" method="POST" class="p-4 sm:p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
+                    @csrf
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-neutral-700 mb-1">Company / Billing Name *</label>
+                            <input type="text" name="company_name" value="{{ old('company_name', $customer->company_name) }}" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl font-bold focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-neutral-700 mb-1">Trade Name (Brand/Display)</label>
+                            <input type="text" name="trade_name" value="{{ old('trade_name', $customer->trade_name) }}" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-neutral-700 mb-1">GSTIN Number</label>
+                            <input type="text" name="gst_number" value="{{ old('gst_number', $customer->gst_number) }}" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl font-mono uppercase focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-neutral-700 mb-1">Relationship Stage</label>
+                            <select name="stage" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl bg-white font-bold focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
+                                <option value="ACTIVE" {{ $customer->stage === 'ACTIVE' ? 'selected' : '' }}>Active Account</option>
+                                <option value="LEAD" {{ $customer->stage === 'LEAD' ? 'selected' : '' }}>Lead / Prospect</option>
+                                <option value="CHURN_RISK" {{ $customer->stage === 'CHURN_RISK' ? 'selected' : '' }}>At Risk</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Payment Terms / Agreed Credit Days -->
+                    <div class="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="block font-bold text-neutral-800">
+                                <span>📅 Agreed Payment Terms (Credit Days) *</span>
+                            </label>
+                            <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800" x-text="creditDays == 0 ? '⚡ 100% Advance / Immediate' : creditDays + ' Days Credit Period'"></span>
+                        </div>
+                        <input type="number" min="0" max="365" name="payment_terms_days" x-model="creditDays" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl font-bold text-sm bg-white focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
+                        <p class="text-[11px] text-neutral-500">Invoices generated for this client will auto-calculate their Due Date as <b>Invoice Date + <span x-text="creditDays"></span> days</b>.</p>
+
+                        <!-- Quick Chips -->
+                        <div class="flex items-center gap-1.5 pt-1 overflow-x-auto">
+                            <button type="button" @click="creditDays = 0" class="px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer" :class="creditDays == 0 ? 'bg-[#091315] text-[#D7FF53] border-black' : 'bg-white hover:bg-neutral-100 text-neutral-700 border-neutral-200'">0D (Advance)</button>
+                            <button type="button" @click="creditDays = 15" class="px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer" :class="creditDays == 15 ? 'bg-[#091315] text-[#D7FF53] border-black' : 'bg-white hover:bg-neutral-100 text-neutral-700 border-neutral-200'">15 Days</button>
+                            <button type="button" @click="creditDays = 30" class="px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer" :class="creditDays == 30 ? 'bg-[#091315] text-[#D7FF53] border-black' : 'bg-white hover:bg-neutral-100 text-neutral-700 border-neutral-200'">30 Days</button>
+                            <button type="button" @click="creditDays = 45" class="px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer" :class="creditDays == 45 ? 'bg-[#091315] text-[#D7FF53] border-black' : 'bg-white hover:bg-neutral-100 text-neutral-700 border-neutral-200'">45 Days</button>
+                            <button type="button" @click="creditDays = 60" class="px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer" :class="creditDays == 60 ? 'bg-[#091315] text-[#D7FF53] border-black' : 'bg-white hover:bg-neutral-100 text-neutral-700 border-neutral-200'">60 Days</button>
+                            <button type="button" @click="creditDays = 90" class="px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer" :class="creditDays == 90 ? 'bg-[#091315] text-[#D7FF53] border-black' : 'bg-white hover:bg-neutral-100 text-neutral-700 border-neutral-200'">90 Days</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block font-bold text-neutral-700 mb-1">Contact Person</label>
+                            <input type="text" name="primary_contact_person" value="{{ old('primary_contact_person', $customer->primary_contact_person) }}" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-neutral-700 mb-1">Phone / WhatsApp</label>
+                            <input type="text" name="primary_phone" value="{{ old('primary_phone', $customer->primary_phone) }}" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-neutral-700 mb-1">Email</label>
+                            <input type="email" name="primary_email" value="{{ old('primary_email', $customer->primary_email) }}" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-neutral-700 mb-1">City</label>
+                            <input type="text" name="city" value="{{ old('city', $customer->city) }}" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-neutral-700 mb-1">State</label>
+                            <input type="text" name="state" value="{{ old('state', $customer->state) }}" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-neutral-100 flex justify-end gap-2 shrink-0">
+                        <button type="button" @click="isEditCustomerOpen = false" class="px-4 py-2 font-bold text-neutral-600 hover:bg-neutral-100 rounded-full cursor-pointer">Cancel</button>
+                        <button type="submit" class="px-5 py-2 font-extrabold text-[#091315] bg-[#D7FF53] hover:bg-[#c8f043] rounded-full shadow-2xs cursor-pointer flex items-center gap-1.5 border border-[#c8f043]">
+                            <span>✓ Save Changes</span>
                         </button>
                     </div>
                 </form>

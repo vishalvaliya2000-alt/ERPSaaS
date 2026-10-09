@@ -695,7 +695,7 @@
                         <select name="customer_id" x-model="selectedCustomerId" @change="onCustomerChange()" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold bg-white" required>
                             <option value="">-- Choose Customer --</option>
                             @foreach($customers as $c)
-                                <option value="{{ $c->id }}">{{ $c->company_name }} ({{ $c->customer_code }}) · {{ $c->city }}</option>
+                                <option value="{{ $c->id }}" data-credit-days="{{ $c->payment_terms_days ?? 30 }}">{{ $c->company_name }} ({{ $c->customer_code }}) · {{ $c->payment_terms_days ?? 30 }}D Credit · {{ $c->city }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -862,7 +862,7 @@
                         </div>
                         <div>
                             <label class="block font-bold text-slate-700 mb-1">Invoice Date *</label>
-                            <input type="date" name="invoice_date" x-model="invoiceDate" @change="onInvoiceDateChange()" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800" required>
+                            <input type="date" name="invoice_date" x-model="invoiceDate" @change="onInvoiceDateChange()" @input="onInvoiceDateChange()" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800" required>
                         </div>
                         <div>
                             <div class="flex items-center justify-between mb-1">
@@ -878,6 +878,7 @@
                                 <button type="button" @click="applyPresetDays(30, '30 Days Credit')" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors cursor-pointer" :class="activeCreditDays === 30 ? 'bg-slate-900 text-[#D7FF53] border-slate-900 font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'" title="30 Days Credit">30D</button>
                                 <button type="button" @click="applyPresetDays(45, '45 Days Credit')" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors cursor-pointer" :class="activeCreditDays === 45 ? 'bg-slate-900 text-[#D7FF53] border-slate-900 font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'" title="45 Days Credit">45D</button>
                                 <button type="button" @click="applyPresetDays(60, '60 Days Credit')" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors cursor-pointer" :class="activeCreditDays === 60 ? 'bg-slate-900 text-[#D7FF53] border-slate-900 font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'" title="60 Days Credit">60D</button>
+                                <button type="button" @click="applyCustomerDefaultDays()" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors cursor-pointer bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200" title="Reset to Client Agreed Terms">Client Terms</button>
                             </div>
                         </div>
                     </div>
@@ -1096,18 +1097,22 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Invoice Date *</label>
-                            <input type="date" name="invoice_date" x-model="editInvoiceDate" class="w-full px-3 py-2 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
+                            <input type="date" name="invoice_date" x-model="editInvoiceDate" @change="onEditInvoiceDateChange()" @input="onEditInvoiceDateChange()" class="w-full px-3 py-2 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
                         </div>
                         <div>
-                            <label class="block font-bold text-neutral-700 mb-1">Payment Due Date *</label>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block font-bold text-neutral-700">Payment Due Date *</label>
+                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded text-neutral-800 bg-neutral-100 border border-neutral-200" x-text="'Client Terms: ' + (editCustomerCreditDays !== undefined ? editCustomerCreditDays : (editInvoice.customer?.payment_terms_days ?? 30)) + 'D Credit'"></span>
+                            </div>
                             <input type="date" name="due_date" x-model="editDueDate" class="w-full px-3 py-2 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
                             <!-- Quick Credit Terms Preset Chips for Edit -->
                             <div class="flex items-center gap-1 mt-1.5 overflow-x-auto py-0.5">
-                                <button type="button" @click="editDueDate = window.addDaysToDateString(editInvoiceDate, 0)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="0 Days / Immediate">0D Adv</button>
-                                <button type="button" @click="editDueDate = window.addDaysToDateString(editInvoiceDate, 15)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="15 Days Credit">15D</button>
-                                <button type="button" @click="editDueDate = window.addDaysToDateString(editInvoiceDate, 30)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="30 Days Credit">30D</button>
-                                <button type="button" @click="editDueDate = window.addDaysToDateString(editInvoiceDate, 45)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="45 Days Credit">45D</button>
-                                <button type="button" @click="editDueDate = window.addDaysToDateString(editInvoiceDate, 60)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="60 Days Credit">60D</button>
+                                <button type="button" @click="applyEditPresetDays(0)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="0 Days / Immediate">0D Adv</button>
+                                <button type="button" @click="applyEditPresetDays(15)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="15 Days Credit">15D</button>
+                                <button type="button" @click="applyEditPresetDays(30)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="30 Days Credit">30D</button>
+                                <button type="button" @click="applyEditPresetDays(45)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="45 Days Credit">45D</button>
+                                <button type="button" @click="applyEditPresetDays(60)" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200 cursor-pointer" title="60 Days Credit">60D</button>
+                                <button type="button" @click="onEditInvoiceDateChange()" class="px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200 cursor-pointer" title="Reset to Client Agreed Terms">Client Terms</button>
                             </div>
                         </div>
                     </div>
@@ -1292,6 +1297,7 @@
             editFreight: '',
             editOtherCharges: '',
             editGstRate: 5.0,
+            editCustomerCreditDays: 30,
 
             setViewMode(mode) {
                 this.viewMode = mode;
@@ -1333,6 +1339,7 @@
 
             openEditModal(invoice, gstRate) {
                 this.editInvoice = invoice;
+                this.editCustomerCreditDays = (invoice.customer && invoice.customer.payment_terms_days !== undefined && invoice.customer.payment_terms_days !== null) ? parseInt(invoice.customer.payment_terms_days, 10) : 30;
                 this.editInvoiceDate = formatInputDate(invoice.invoice_date_formatted || invoice.invoice_date) || '{{ date("Y-m-d") }}';
                 this.editDueDate = formatInputDate(invoice.due_date_formatted || invoice.due_date) || '{{ date("Y-m-d") }}';
                 this.editSubtotal = invoice.material_subtotal > 0 ? invoice.material_subtotal : invoice.subtotal;
@@ -1346,6 +1353,15 @@
 
     function editInvoiceForm() {
         return {
+            onEditInvoiceDateChange() {
+                const baseDate = this.editInvoiceDate || '{{ date('Y-m-d') }}';
+                const creditDays = this.editCustomerCreditDays !== undefined ? parseInt(this.editCustomerCreditDays, 10) : (this.editInvoice?.customer?.payment_terms_days ?? 30);
+                this.editDueDate = window.addDaysToDateString ? window.addDaysToDateString(baseDate, creditDays) : baseDate;
+            },
+            applyEditPresetDays(days) {
+                const baseDate = this.editInvoiceDate || '{{ date('Y-m-d') }}';
+                this.editDueDate = window.addDaysToDateString ? window.addDaysToDateString(baseDate, days) : baseDate;
+            },
             getEditTaxableSubtotal() {
                 const mat = parseFloat(this.editSubtotal) || 0;
                 const frt = parseFloat(this.editFreight) || 0;
@@ -1728,6 +1744,19 @@
             onInvoiceDateChange() {
                 const baseDate = this.invoiceDate || '{{ date('Y-m-d') }}';
                 this.dueDate = window.addDaysToDateString ? window.addDaysToDateString(baseDate, this.activeCreditDays) : baseDate;
+            },
+
+            getCustomerCreditDays() {
+                const custId = String(this.selectedCustomerId || '');
+                if (custId && this.customersMap && this.customersMap[custId]) {
+                    const cust = this.customersMap[custId];
+                    return cust.payment_terms_days !== undefined && cust.payment_terms_days !== null ? parseInt(cust.payment_terms_days, 10) : 30;
+                }
+                return 30;
+            },
+
+            applyCustomerDefaultDays() {
+                this.calculateDueDate();
             }
         }
     }

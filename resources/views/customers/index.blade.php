@@ -248,8 +248,9 @@
                             <input type="text" name="state" value="{{ old('state', 'Gujarat') }}" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
                         </div>
                         <div>
-                            <label class="block font-bold text-neutral-700 mb-1">Credit Terms (Days)</label>
-                            <input type="number" name="payment_terms_days" value="{{ old('payment_terms_days', 30) }}" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl font-bold focus:ring-2 focus:ring-[#091315] focus:outline-hidden">
+                            <label class="block font-bold text-neutral-700 mb-1">Agreed Credit Terms (Days)</label>
+                            <input type="number" min="0" max="365" name="payment_terms_days" value="{{ old('payment_terms_days', 30) }}" class="w-full px-3.5 py-2 border border-neutral-300 rounded-xl font-bold focus:ring-2 focus:ring-[#091315] focus:outline-hidden" placeholder="e.g. 0, 15, 30, 45">
+                            <p class="text-[10px] text-neutral-400 mt-1">Invoice due dates auto-calculate as Invoice Date + credit days.</p>
                         </div>
                     </div>
 

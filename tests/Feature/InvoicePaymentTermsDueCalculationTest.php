@@ -147,3 +147,55 @@ test('storing invoice 100% settled by advance aligns due date with invoice date 
     expect($invoice->status)->toBe('PAID');
     expect($invoice->due_date->format('Y-m-d'))->toBe($invDate);
 });
+
+test('customer credit days can be updated via profile update and reflected in invoices customersMap', function () {
+    $response = $this->actingAs($this->user)->post(route('customers.update', $this->customer15Days->id), [
+        'company_name' => $this->customer15Days->company_name,
+        'payment_terms_days' => 45,
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $this->customer15Days->refresh();
+    expect($this->customer15Days->payment_terms_days)->toBe(45);
+
+    $indexResponse = $this->actingAs($this->user)->get(route('invoices.index'));
+    $map = $indexResponse->viewData('customersMap');
+    expect($map[$this->customer15Days->id]['payment_terms_days'])->toBe(45);
+});
+
+test('updating invoice recalculates due date based on updated invoice date and credit terms', function () {
+    $invDate = '2026-10-10';
+    $dueDate = '2026-10-25'; // 15 days
+
+    $invoice = Invoice::create([
+        'invoice_number' => 'INV-EDIT-TEST-' . rand(1000, 9999),
+        'customer_id' => $this->customer15Days->id,
+        'invoice_date' => Carbon::parse($invDate),
+        'due_date' => Carbon::parse($dueDate),
+        'material_subtotal' => 20000,
+        'subtotal' => 20000,
+        'gst_amount' => 1000,
+        'total_amount' => 21000,
+        'balance_due' => 21000,
+        'amount_received' => 0,
+        'status' => 'ISSUED',
+    ]);
+
+    // Update with new invoice date and re-calculated due date (+15 days)
+    $newInvDate = '2026-10-20';
+    $newDueDate = '2026-11-04';
+
+    $response = $this->actingAs($this->user)->post("/invoices/{$invoice->id}/update", [
+        'invoice_number' => $invoice->invoice_number,
+        'invoice_date' => $newInvDate,
+        'due_date' => $newDueDate,
+        'material_subtotal' => 20000,
+        'gst_rate' => 5,
+    ]);
+
+    $response->assertRedirect(route('invoices.index'));
+    $invoice->refresh();
+    expect($invoice->invoice_date->format('Y-m-d'))->toBe($newInvDate);
+    expect($invoice->due_date->format('Y-m-d'))->toBe($newDueDate);
+});
+
