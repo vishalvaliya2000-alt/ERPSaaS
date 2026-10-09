@@ -3,7 +3,7 @@
 @section('title', 'Customer 360 — ' . ($customer->company_name ?? 'Account Details'))
 
 @section('content')
-<div class="space-y-6 pb-12" x-data='{ tab: "overview", whatsappOpen: false, isQuoteModalOpen: false, isSampleModalOpen: false, isEditCustomerOpen: false, noteText: "", msg: "Hi {{ $customer->primary_contact_person ?: $customer->company_name }}, following up regarding our open dehydrated garlic & onion orders and upcoming requirements. Please let me know your schedule." }'>
+<div class="space-y-6 pb-12" x-data="{ tab: 'overview', whatsappOpen: false, isQuoteModalOpen: false, isSampleModalOpen: false, isEditCustomerOpen: false, noteText: '', msg: @js('Hi ' . ($customer->primary_contact_person ?: $customer->company_name) . ', following up regarding our open dehydrated garlic & onion orders and upcoming requirements. Please let me know your schedule.') }">
     <!-- Breadcrumb & Header -->
     <div class="flex items-center gap-2 text-xs text-neutral-500 font-medium">
         <a href="{{ route('customers.index') }}" class="px-3 py-1 rounded-full bg-white hover:bg-neutral-100 text-neutral-700 font-bold border border-neutral-200/80 shadow-2xs transition-all flex items-center gap-1.5">
@@ -148,9 +148,6 @@
         <button @click="tab = 'overview'" :class="tab === 'overview' ? 'bg-[#091315] text-[#D7FF53] shadow-xs' : 'text-neutral-600 hover:text-neutral-900'" class="px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap cursor-pointer transition-all font-display">
             Overview & Contacts
         </button>
-        <button @click="tab = 'leads'" :class="tab === 'leads' ? 'bg-[#091315] text-[#D7FF53] shadow-xs' : 'text-neutral-600 hover:text-neutral-900'" class="px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap cursor-pointer transition-all font-display">
-            Leads
-        </button>
         <button @click="tab = 'samples'" :class="tab === 'samples' ? 'bg-[#091315] text-[#D7FF53] shadow-xs' : 'text-neutral-600 hover:text-neutral-900'" class="px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap cursor-pointer transition-all font-display">
             Samples ({{ count($customer->samples) }})
         </button>
@@ -159,9 +156,6 @@
         </button>
         <button @click="tab = 'sales_orders'" :class="tab === 'sales_orders' ? 'bg-[#091315] text-[#D7FF53] shadow-xs' : 'text-neutral-600 hover:text-neutral-900'" class="px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap cursor-pointer transition-all font-display">
             Sales Orders ({{ count($customer->salesOrders) }})
-        </button>
-        <button @click="tab = 'purchase_orders'" :class="tab === 'purchase_orders' ? 'bg-[#091315] text-[#D7FF53] shadow-xs' : 'text-neutral-600 hover:text-neutral-900'" class="px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap cursor-pointer transition-all font-display">
-            Purchase Orders
         </button>
         <button @click="tab = 'shipments'" :class="tab === 'shipments' ? 'bg-[#091315] text-[#D7FF53] shadow-xs' : 'text-neutral-600 hover:text-neutral-900'" class="px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap cursor-pointer transition-all font-display">
             Shipments & LRs
@@ -174,9 +168,6 @@
         </button>
         <button @click="tab = 'documents'" :class="tab === 'documents' ? 'bg-[#091315] text-[#D7FF53] shadow-xs' : 'text-neutral-600 hover:text-neutral-900'" class="px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap cursor-pointer transition-all font-display">
             Documents ({{ count($customer->documents) }})
-        </button>
-        <button @click="tab = 'timeline'" :class="tab === 'timeline' ? 'bg-[#091315] text-[#D7FF53] shadow-xs' : 'text-neutral-600 hover:text-neutral-900'" class="px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap cursor-pointer transition-all font-display">
-            Timeline & Follow-ups ({{ count($customer->activities) }})
         </button>
     </div>
 
@@ -232,20 +223,6 @@
                     </div>
                 @endforelse
             </div>
-        </div>
-
-        <!-- Leads -->
-        <div x-show="tab === 'leads'" class="space-y-4 text-center py-12">
-            <div class="text-4xl mb-3">🎯</div>
-            <h3 class="font-bold text-lg text-slate-800">No active leads</h3>
-            <p class="text-slate-500 max-w-md mx-auto">This customer has no active CRM leads. Create a new lead to track opportunities.</p>
-        </div>
-
-        <!-- Purchase Orders -->
-        <div x-show="tab === 'purchase_orders'" class="space-y-4 text-center py-12">
-            <div class="text-4xl mb-3">📝</div>
-            <h3 class="font-bold text-lg text-slate-800">No Purchase Orders</h3>
-            <p class="text-slate-500 max-w-md mx-auto">Upload buyer PO documents directly when creating a Sales Order to see them linked here.</p>
         </div>
 
         <!-- Payments / Outstanding -->
@@ -591,32 +568,6 @@
             </div>
         </div>
 
-        <!-- Timeline -->
-        <div x-show="tab === 'timeline'" class="space-y-4">
-            <form action="{{ route('tasks.store') }}" method="POST" class="flex gap-2">
-                @csrf
-                <input type="hidden" name="customer_id" value="{{ $customer->id }}">
-                <input type="hidden" name="due_date" value="{{ date('Y-m-d') }}">
-                <input type="text" name="reason" placeholder="Log a call note, conversation summary, or WhatsApp update..." class="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-xl" required>
-                <input type="hidden" name="next_action" value="Review note during next customer discussion">
-                <button type="submit" class="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl">
-                    Log Entry
-                </button>
-            </form>
-
-            <div class="space-y-2 pt-2">
-                @foreach($customer->activities as $act)
-                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="font-bold text-slate-900">{{ $act->title }}</span>
-                            <span class="text-[10px] text-slate-400">{{ $act->occurred_at->format('d M Y') }}</span>
-                        </div>
-                        <p class="text-slate-600">{{ $act->description }}</p>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-
         <!-- Documents Tab (Requirement 12) -->
         <div x-show="tab === 'documents'" class="space-y-5">
             <!-- Documents Summary Header -->
@@ -929,6 +880,8 @@
                 </form>
             </div>
         </div>
+    </template>
+
     <!-- Edit Customer & Credit Terms Modal -->
     <template x-teleport="body">
         <div x-show="isEditCustomerOpen" x-cloak class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
