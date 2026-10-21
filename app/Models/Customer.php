@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Models\Traits\BelongsToTenant;
-
+use App\Services\TenantManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class Customer extends Model
 {
@@ -48,8 +50,8 @@ class Customer extends Model
     protected static function booted()
     {
         static::creating(function ($customer) {
-            if (!$customer->tenant_id) {
-                $customer->tenant_id = \App\Services\TenantManager::getTenantId();
+            if (! $customer->tenant_id) {
+                $customer->tenant_id = TenantManager::getTenantId();
             }
             if (empty($customer->customer_code)) {
                 $customer->customer_code = static::generateNextCode($customer->tenant_id);
@@ -63,7 +65,7 @@ class Customer extends Model
      */
     public static function generateNextCode(?int $tenantId = null): string
     {
-        $tenantId = $tenantId ?? \App\Services\TenantManager::getTenantId();
+        $tenantId = $tenantId ?? TenantManager::getTenantId();
 
         $query = static::withoutGlobalScopes();
         if ($tenantId) {
@@ -75,7 +77,7 @@ class Customer extends Model
         $maxNum = 0;
         foreach ($codes as $code) {
             if (preg_match('/CUST[-_]?(\d+)/i', $code, $matches)) {
-                $num = (int)$matches[1];
+                $num = (int) $matches[1];
                 if ($num > $maxNum) {
                     $maxNum = $num;
                 }
@@ -83,7 +85,8 @@ class Customer extends Model
         }
 
         $nextNum = $maxNum + 1;
-        return 'CUST-' . str_pad((string)$nextNum, 4, '0', STR_PAD_LEFT);
+
+        return 'CUST-'.str_pad((string) $nextNum, 4, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -185,8 +188,108 @@ class Customer extends Model
     public function getFulfillmentPercentageAttribute(): float
     {
         $ordered = $this->total_ordered_qty;
-        if ($ordered <= 0) return 100.0;
+        if ($ordered <= 0) {
+            return 100.0;
+        }
+
         return round(($this->total_supplied_qty / $ordered) * 100, 1);
     }
-}
 
+    /**
+     * Get consolidated product-wise ordered, shipped, and pending quantities for this customer.
+     *
+     * @return Collection<int, object>
+     */
+    public function getProductFulfillmentSummaryAttribute(): Collection
+    {
+        // If salesOrders is already loaded in memory with items.product, aggregate from collection
+        if ($this->relationLoaded('salesOrders')) {
+            $summary = [];
+
+            foreach ($this->salesOrders as $order) {
+                // Ignore cancelled or rejected orders
+                if (in_array(strtoupper($order->status ?? ''), ['CANCELLED', 'REJECTED'])) {
+                    continue;
+                }
+
+                foreach ($order->items as $item) {
+                    $productId = $item->product_id;
+                    if (! $productId) {
+                        continue;
+                    }
+
+                    if (! isset($summary[$productId])) {
+                        $product = $item->product;
+                        $summary[$productId] = (object) [
+                            'product_id' => $productId,
+                            'product_name' => $product->product_name ?? ('Product #'.$productId),
+                            'product_code' => $product->product_code ?? '',
+                            'uom' => $product->uom ?? 'KG',
+                            'total_ordered' => 0.0,
+                            'total_shipped' => 0.0,
+                            'total_pending' => 0.0,
+                            'orders_count' => 0,
+                            'order_ids' => [],
+                            'last_rate' => (float) ($item->rate ?? 0),
+                        ];
+                    }
+
+                    $summary[$productId]->total_ordered += (float) $item->order_qty;
+                    $summary[$productId]->total_shipped += (float) $item->shipped_qty;
+                    $summary[$productId]->total_pending += (float) $item->balance_qty;
+
+                    if (! in_array($order->id, $summary[$productId]->order_ids)) {
+                        $summary[$productId]->order_ids[] = $order->id;
+                        $summary[$productId]->orders_count++;
+                    }
+                }
+            }
+
+            return collect(array_values($summary))->map(function ($item) {
+                $ordered = $item->total_ordered;
+                $shipped = $item->total_shipped;
+                $pending = max(0, $item->total_pending);
+
+                $fulfillmentPct = $ordered > 0 ? min(100.0, round(($shipped / $ordered) * 100, 1)) : 100.0;
+
+                $item->fulfillment_percentage = $fulfillmentPct;
+                $item->status = $pending <= 0 ? 'COMPLETED' : ($shipped > 0 ? 'PARTIAL' : 'PENDING');
+
+                return $item;
+            })->sortByDesc('total_pending')->values();
+        }
+
+        // Database query fallback if salesOrders relation is not eager-loaded
+        return DB::table('sales_order_items')
+            ->join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+            ->join('products', 'sales_order_items.product_id', '=', 'products.id')
+            ->where('sales_orders.customer_id', $this->id)
+            ->whereNotIn('sales_orders.status', ['CANCELLED', 'REJECTED'])
+            ->select(
+                'products.id as product_id',
+                'products.product_name',
+                'products.product_code',
+                'products.uom',
+                DB::raw('SUM(sales_order_items.order_qty) as total_ordered'),
+                DB::raw('SUM(sales_order_items.shipped_qty) as total_shipped'),
+                DB::raw('SUM(sales_order_items.balance_qty) as total_pending'),
+                DB::raw('COUNT(DISTINCT sales_orders.id) as orders_count')
+            )
+            ->groupBy('products.id', 'products.product_name', 'products.product_code', 'products.uom')
+            ->orderByDesc('total_pending')
+            ->get()
+            ->map(function ($item) {
+                $ordered = (float) $item->total_ordered;
+                $shipped = (float) $item->total_shipped;
+                $pending = max(0, (float) $item->total_pending);
+
+                $item->total_ordered = $ordered;
+                $item->total_shipped = $shipped;
+                $item->total_pending = $pending;
+                $item->fulfillment_percentage = $ordered > 0 ? min(100.0, round(($shipped / $ordered) * 100, 1)) : 100.0;
+                $item->status = $pending <= 0 ? 'COMPLETED' : ($shipped > 0 ? 'PARTIAL' : 'PENDING');
+
+                return $item;
+            });
+    }
+}

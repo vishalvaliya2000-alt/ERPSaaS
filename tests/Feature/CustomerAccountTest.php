@@ -1,6 +1,9 @@
 <?php
 
 use App\Models\Customer;
+use App\Models\Product;
+use App\Models\SalesOrder;
+use App\Models\SalesOrderItem;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\TenantManager;
@@ -34,10 +37,10 @@ test('Customer::generateNextCode generates sequential zero-padded CUST-xxxx code
 
     $nextCode = Customer::generateNextCode($this->tenant->id);
     expect($nextCode)->toMatch('/^CUST-\d{4}$/');
-    
+
     preg_match('/CUST-(\d+)/', $initialCode, $m1);
     preg_match('/CUST-(\d+)/', $nextCode, $m2);
-    expect((int)$m2[1])->toBeGreaterThan((int)$m1[1]);
+    expect((int) $m2[1])->toBeGreaterThan((int) $m1[1]);
 });
 
 test('customer creation stores Legal Name and Trade Name and auto-generates Customer Code when omitted', function () {
@@ -45,7 +48,7 @@ test('customer creation stores Legal Name and Trade Name and auto-generates Cust
         'customer_code' => '',
         'company_name' => 'Balaji Agro Industries Pvt Ltd',
         'trade_name' => 'Balaji Agro Brand',
-        'gst_number' => '24AAACB' . rand(1000, 9999) . 'F1Z5',
+        'gst_number' => '24AAACB'.rand(1000, 9999).'F1Z5',
         'primary_contact_person' => 'Bhavesh Patel',
         'primary_phone' => '9898012345',
         'city' => 'Mahuva',
@@ -66,7 +69,7 @@ test('customer creation accepts legal_name attribute directly', function () {
     $response = $this->actingAs($this->user)->post(route('customers.store'), [
         'legal_name' => 'Kisan Food Processors LLP',
         'trade_name' => 'Kisan Pure Foods',
-        'gst_number' => '24AAACK' . rand(1000, 9999) . 'F1Z6',
+        'gst_number' => '24AAACK'.rand(1000, 9999).'F1Z6',
         'city' => 'Bhavnagar',
     ]);
 
@@ -104,12 +107,12 @@ test('executive dashboard does NOT render Documents Requiring Attention card', f
 test('every new tenant starts customer code sequence from CUST-0001 independently', function () {
     $tenantA = Tenant::create([
         'name' => 'Alpha Agro Exports',
-        'slug' => 'alpha-agro-' . rand(1000, 9999),
+        'slug' => 'alpha-agro-'.rand(1000, 9999),
     ]);
 
     $tenantB = Tenant::create([
         'name' => 'Beta Spices Global',
-        'slug' => 'beta-spices-' . rand(1000, 9999),
+        'slug' => 'beta-spices-'.rand(1000, 9999),
     ]);
 
     // For Tenant A: First customer must be CUST-0001
@@ -147,4 +150,149 @@ test('every new tenant starts customer code sequence from CUST-0001 independentl
     // Verify both tenants possess a CUST-0001 record in the database simultaneously
     expect(Customer::withoutGlobalScopes()->where('tenant_id', $tenantA->id)->where('customer_code', 'CUST-0001')->exists())->toBeTrue();
     expect(Customer::withoutGlobalScopes()->where('tenant_id', $tenantB->id)->where('customer_code', 'CUST-0001')->exists())->toBeTrue();
+});
+
+test('customer product fulfillment summary accurately calculates quantities per product', function () {
+    TenantManager::setTenant($this->tenant);
+
+    $customer = Customer::create([
+        'tenant_id' => $this->tenant->id,
+        'company_name' => 'Fulfillment Test Client',
+        'customer_code' => Customer::generateNextCode($this->tenant->id),
+    ]);
+
+    $prodGarlic = Product::create([
+        'tenant_id' => $this->tenant->id,
+        'product_name' => 'Garlic Powder Special Grade',
+        'product_code' => 'GPSG-01',
+        'uom' => 'KG',
+        'is_active' => true,
+    ]);
+
+    $prodOnion = Product::create([
+        'tenant_id' => $this->tenant->id,
+        'product_name' => 'White Onion Flakes Premium',
+        'product_code' => 'WOFP-01',
+        'uom' => 'KG',
+        'is_active' => true,
+    ]);
+
+    // Order 1: 10,000 KG Garlic, 5,000 KG Onion
+    $order1 = SalesOrder::create([
+        'tenant_id' => $this->tenant->id,
+        'customer_id' => $customer->id,
+        'order_number' => 'SO-TEST-001',
+        'order_date' => now(),
+        'status' => 'CONFIRMED',
+    ]);
+
+    SalesOrderItem::create([
+        'tenant_id' => $this->tenant->id,
+        'sales_order_id' => $order1->id,
+        'product_id' => $prodGarlic->id,
+        'order_qty' => 10000,
+        'shipped_qty' => 4000,
+        'balance_qty' => 6000,
+        'rate' => 150,
+        'order_value' => 1500000,
+        'status' => 'PARTIAL',
+    ]);
+
+    SalesOrderItem::create([
+        'tenant_id' => $this->tenant->id,
+        'sales_order_id' => $order1->id,
+        'product_id' => $prodOnion->id,
+        'order_qty' => 5000,
+        'shipped_qty' => 5000,
+        'balance_qty' => 0,
+        'rate' => 120,
+        'order_value' => 600000,
+        'status' => 'COMPLETED',
+    ]);
+
+    // Order 2: 5,000 KG more Garlic (Shipped 1,000 KG, Balance 4,000 KG)
+    $order2 = SalesOrder::create([
+        'tenant_id' => $this->tenant->id,
+        'customer_id' => $customer->id,
+        'order_number' => 'SO-TEST-002',
+        'order_date' => now(),
+        'status' => 'PARTIALLY_DISPATCHED',
+    ]);
+
+    SalesOrderItem::create([
+        'tenant_id' => $this->tenant->id,
+        'sales_order_id' => $order2->id,
+        'product_id' => $prodGarlic->id,
+        'order_qty' => 5000,
+        'shipped_qty' => 1000,
+        'balance_qty' => 4000,
+        'rate' => 155,
+        'order_value' => 775000,
+        'status' => 'PARTIAL',
+    ]);
+
+    // Cancelled Order 3: 20,000 KG Garlic (Should be excluded)
+    $orderCancelled = SalesOrder::create([
+        'tenant_id' => $this->tenant->id,
+        'customer_id' => $customer->id,
+        'order_number' => 'SO-TEST-003',
+        'order_date' => now(),
+        'status' => 'CANCELLED',
+    ]);
+
+    SalesOrderItem::create([
+        'tenant_id' => $this->tenant->id,
+        'sales_order_id' => $orderCancelled->id,
+        'product_id' => $prodGarlic->id,
+        'order_qty' => 20000,
+        'shipped_qty' => 0,
+        'balance_qty' => 20000,
+        'rate' => 140,
+        'order_value' => 2800000,
+        'status' => 'CANCELLED',
+    ]);
+
+    // Test Model Accessor (DB Fallback)
+    $customerFresh = Customer::find($customer->id);
+    $summary = $customerFresh->product_fulfillment_summary;
+
+    expect($summary)->toHaveCount(2);
+
+    $garlicSummary = $summary->firstWhere('product_id', $prodGarlic->id);
+    expect($garlicSummary)->not->toBeNull();
+    expect($garlicSummary->total_ordered)->toEqual(15000.0);
+    expect($garlicSummary->total_shipped)->toEqual(5000.0);
+    expect($garlicSummary->total_pending)->toEqual(10000.0);
+    expect($garlicSummary->fulfillment_percentage)->toEqual(33.3);
+    expect($garlicSummary->status)->toBe('PARTIAL');
+    expect($garlicSummary->orders_count)->toBe(2);
+
+    $onionSummary = $summary->firstWhere('product_id', $prodOnion->id);
+    expect($onionSummary)->not->toBeNull();
+    expect($onionSummary->total_ordered)->toEqual(5000.0);
+    expect($onionSummary->total_shipped)->toEqual(5000.0);
+    expect($onionSummary->total_pending)->toEqual(0.0);
+    expect($onionSummary->fulfillment_percentage)->toEqual(100.0);
+    expect($onionSummary->status)->toBe('COMPLETED');
+    expect($onionSummary->orders_count)->toBe(1);
+
+    // Test Eager-Loaded Collection Branch
+    $customerEager = Customer::with('salesOrders.items.product')->find($customer->id);
+    $eagerSummary = $customerEager->product_fulfillment_summary;
+
+    expect($eagerSummary)->toHaveCount(2);
+    $garlicEager = $eagerSummary->firstWhere('product_id', $prodGarlic->id);
+    expect($garlicEager->total_ordered)->toEqual(15000.0);
+    expect($garlicEager->total_shipped)->toEqual(5000.0);
+    expect($garlicEager->total_pending)->toEqual(10000.0);
+
+    // Test Customer Show HTTP Response
+    $response = $this->actingAs($this->user)->get(route('customers.show', $customer->id));
+    $response->assertStatus(200);
+    $response->assertSee('Product-Wise Orders');
+    $response->assertSee('Garlic Powder Special Grade');
+    $response->assertSee('15,000');
+    $response->assertSee('5,000');
+    $response->assertSee('10,000');
+    $response->assertSee('White Onion Flakes Premium');
 });

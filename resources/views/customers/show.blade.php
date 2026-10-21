@@ -174,55 +174,60 @@
     <!-- Tab Contents -->
     <div class="bg-white rounded-3xl border border-neutral-200/80 p-6 lg:p-7 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <!-- Overview -->
-        <div x-show="tab === 'overview'" class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-            <div class="space-y-3">
-                <h4 class="font-bold text-slate-800 uppercase tracking-wide border-b pb-2">Business Information</h4>
-                <dl class="grid grid-cols-2 gap-3">
-                    <div>
-                        <dt class="text-slate-400 font-bold">Company Name</dt>
-                        <dd class="font-bold text-slate-800 mt-0.5">{{ $customer->company_name }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-slate-400 font-bold">Customer Code</dt>
-                        <dd class="font-mono font-bold text-slate-800 mt-0.5">{{ $customer->customer_code }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-slate-400 font-bold">GSTIN</dt>
-                        <dd class="font-mono font-bold text-slate-800 mt-0.5">{{ $customer->gst_number ?? '—' }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-slate-400 font-bold">Payment Terms</dt>
-                        <dd class="font-bold text-slate-800 mt-0.5">{{ $customer->payment_terms_days }} Days Credit</dd>
-                    </div>
-                    <div class="col-span-2">
-                        <dt class="text-slate-400 font-bold">Factory / Godown Address</dt>
-                        <dd class="text-slate-700 mt-0.5">{{ $customer->address_line ?? 'Address on file' }} ({{ $customer->city }}, {{ $customer->state }})</dd>
-                    </div>
-                </dl>
+        <div x-show="tab === 'overview'" class="space-y-6 text-xs">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-3">
+                    <h4 class="font-bold text-slate-800 uppercase tracking-wide border-b pb-2">Business Information</h4>
+                    <dl class="grid grid-cols-2 gap-3">
+                        <div>
+                            <dt class="text-slate-400 font-bold">Company Name</dt>
+                            <dd class="font-bold text-slate-800 mt-0.5">{{ $customer->company_name }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-slate-400 font-bold">Customer Code</dt>
+                            <dd class="font-mono font-bold text-slate-800 mt-0.5">{{ $customer->customer_code }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-slate-400 font-bold">GSTIN</dt>
+                            <dd class="font-mono font-bold text-slate-800 mt-0.5">{{ $customer->gst_number ?? '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-slate-400 font-bold">Payment Terms</dt>
+                            <dd class="font-bold text-slate-800 mt-0.5">{{ $customer->payment_terms_days }} Days Credit</dd>
+                        </div>
+                        <div class="col-span-2">
+                            <dt class="text-slate-400 font-bold">Factory / Godown Address</dt>
+                            <dd class="text-slate-700 mt-0.5">{{ $customer->address_line ?? 'Address on file' }} ({{ $customer->city }}, {{ $customer->state }})</dd>
+                        </div>
+                    </dl>
+                </div>
+
+                <div class="space-y-3">
+                    <h4 class="font-bold text-slate-800 uppercase tracking-wide border-b pb-2">Contacts</h4>
+                    @forelse($customer->contacts as $c)
+                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-slate-900">{{ $c->name ?: ($customer->primary_contact_person ?? 'Primary Contact') }}</span>
+                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">{{ $c->designation ?? 'Primary' }}</span>
+                            </div>
+                            <p class="text-slate-600">Phone: {{ $c->phone ?: ($customer->primary_phone ?? '—') }}</p>
+                            <p class="text-slate-600">Email: {{ $c->email ?: ($customer->email ?? '—') }}</p>
+                        </div>
+                    @empty
+                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-slate-900">{{ $customer->primary_contact_person ?? 'Primary Contact' }}</span>
+                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Primary</span>
+                            </div>
+                            <p class="text-slate-600">Phone: {{ $customer->primary_phone ?? '—' }}</p>
+                            <p class="text-slate-600">Email: {{ $customer->email ?? '—' }}</p>
+                        </div>
+                    @endforelse
+                </div>
             </div>
 
-            <div class="space-y-3">
-                <h4 class="font-bold text-slate-800 uppercase tracking-wide border-b pb-2">Contacts</h4>
-                @forelse($customer->contacts as $c)
-                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                        <div class="flex items-center justify-between">
-                            <span class="font-bold text-slate-900">{{ $c->name ?: ($customer->primary_contact_person ?? 'Primary Contact') }}</span>
-                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">{{ $c->designation ?? 'Primary' }}</span>
-                        </div>
-                        <p class="text-slate-600">Phone: {{ $c->phone ?: ($customer->primary_phone ?? '—') }}</p>
-                        <p class="text-slate-600">Email: {{ $c->email ?: ($customer->email ?? '—') }}</p>
-                    </div>
-                @empty
-                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                        <div class="flex items-center justify-between">
-                            <span class="font-bold text-slate-900">{{ $customer->primary_contact_person ?? 'Primary Contact' }}</span>
-                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Primary</span>
-                        </div>
-                        <p class="text-slate-600">Phone: {{ $customer->primary_phone ?? '—' }}</p>
-                        <p class="text-slate-600">Email: {{ $customer->email ?? '—' }}</p>
-                    </div>
-                @endforelse
-            </div>
+            <!-- Product-Wise Orders & Fulfillment Widget -->
+            @include('customers.partials.product_fulfillment_widget', ['customer' => $customer])
         </div>
 
         <!-- Payments / Outstanding -->
@@ -233,7 +238,10 @@
         </div>
 
         <!-- Orders -->
-        <div x-show="tab === 'sales_orders'" class="space-y-4">
+        <div x-show="tab === 'sales_orders'" class="space-y-6">
+            <!-- Product-Wise Fulfillment Summary -->
+            @include('customers.partials.product_fulfillment_widget', ['customer' => $customer])
+
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs border-collapse">
                     <thead>
