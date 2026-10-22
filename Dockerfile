@@ -11,7 +11,7 @@ RUN npm run build
 # -------------------------------------------------------------
 # Stage 2: Production PHP runtime
 # -------------------------------------------------------------
-FROM php:8.4-apache
+FROM php:8.4.27-apache
 
 # Install system dependencies & PHP extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
