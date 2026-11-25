@@ -137,6 +137,12 @@ class Invoice extends Model
             return round((float) $this->creditNotes->sum('total_amount'), 2);
         }
 
+        if ($this->relationLoaded('creditDebitNotes')) {
+            return round((float) $this->creditDebitNotes
+                ->filter(fn ($n) => in_array($n->note_type, [CreditDebitNote::TYPE_CREDIT, 'CREDIT_NOTE', 'CREDIT']) && $n->status !== CreditDebitNote::STATUS_CANCELLED && $n->status !== 'CANCELLED')
+                ->sum('total_amount'), 2);
+        }
+
         return round((float) $this->creditNotes()->sum('total_amount'), 2);
     }
 
@@ -144,6 +150,12 @@ class Invoice extends Model
     {
         if ($this->relationLoaded('debitNotes')) {
             return round((float) $this->debitNotes->sum('total_amount'), 2);
+        }
+
+        if ($this->relationLoaded('creditDebitNotes')) {
+            return round((float) $this->creditDebitNotes
+                ->filter(fn ($n) => in_array($n->note_type, [CreditDebitNote::TYPE_DEBIT, 'DEBIT_NOTE', 'DEBIT']) && $n->status !== CreditDebitNote::STATUS_CANCELLED && $n->status !== 'CANCELLED')
+                ->sum('total_amount'), 2);
         }
 
         return round((float) $this->debitNotes()->sum('total_amount'), 2);

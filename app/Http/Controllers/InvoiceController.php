@@ -54,7 +54,7 @@ class InvoiceController extends Controller
         $products = Product::orderBy('product_name')->get();
 
         // Open orders that have un-invoiced value remaining
-        $orders = SalesOrder::with(['customer', 'invoices'])
+        $orders = SalesOrder::with(['customer', 'invoices', 'paymentReceipts'])
             ->orderByDesc('order_date')
             ->get()
             ->filter(function ($o) {
@@ -139,10 +139,15 @@ class InvoiceController extends Controller
             ];
         }
 
-        // Open orders formatted for customer selection
+        // Open orders formatted for customer selection (batch loaded in 1 query)
+        $allOrdersGrouped = SalesOrder::with(['invoices', 'paymentReceipts'])
+            ->orderByDesc('order_date')
+            ->get()
+            ->groupBy('customer_id');
+
         $customerOrdersData = [];
         foreach ($customers as $c) {
-            $cOrders = SalesOrder::where('customer_id', $c->id)->orderByDesc('order_date')->get();
+            $cOrders = $allOrdersGrouped->get($c->id, collect());
             $customerOrdersData[$c->id] = $cOrders->map(fn ($o) => [
                 'id' => $o->id,
                 'order_number' => $o->order_number,

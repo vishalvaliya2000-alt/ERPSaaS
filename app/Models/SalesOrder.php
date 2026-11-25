@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Models\Traits\BelongsToTenant;
-
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -171,12 +171,18 @@ class SalesOrder extends Model
      */
     public function unadjustedAdvanceAmount(): float
     {
-        // Advance received against this PO minus advance amounts already offset against invoices
-        $alreadyAdjusted = (float) $this->paymentReceipts()
-            ->where('payment_mode', 'ADVANCE_OFFSET')
-            ->sum('amount_received');
+        if ($this->relationLoaded('paymentReceipts')) {
+            $alreadyAdjusted = (float) $this->paymentReceipts
+                ->where('payment_mode', 'ADVANCE_OFFSET')
+                ->sum('amount_received');
+        } else {
+            $alreadyAdjusted = (float) $this->paymentReceipts()
+                ->where('payment_mode', 'ADVANCE_OFFSET')
+                ->sum('amount_received');
+        }
 
         $unadjusted = (float) $this->advance_received - $alreadyAdjusted;
+
         return max(0, $unadjusted);
     }
 
@@ -185,8 +191,8 @@ class SalesOrder extends Model
      */
     public function recordAdvance(float $amount, string $paymentMode, ?string $refNumber = null, ?string $remarks = null, $receiptDate = null): PaymentReceipt
     {
-        $receiptNumber = 'ADV-' . date('Ymd') . '-' . rand(100, 999);
-        $date = $receiptDate ? \Carbon\Carbon::parse($receiptDate) : \Carbon\Carbon::now();
+        $receiptNumber = 'ADV-'.date('Ymd').'-'.rand(100, 999);
+        $date = $receiptDate ? Carbon::parse($receiptDate) : Carbon::now();
 
         $receipt = PaymentReceipt::create([
             'tenant_id' => $this->tenant_id,
@@ -225,7 +231,7 @@ class SalesOrder extends Model
             'tenant_id' => $this->tenant_id,
             'customer_id' => $this->customer_id,
             'activity_type' => 'PAYMENT',
-            'title' => "Advance Received (" . formatINR($amount) . ")",
+            'title' => 'Advance Received ('.formatINR($amount).')',
             'description' => "Received {$paymentMode} (Ref: {$refNumber}) against PO {$this->order_number}.",
             'occurred_at' => $date,
         ]);
@@ -255,6 +261,10 @@ class SalesOrder extends Model
 
     public function totalInvoicedAmount(): float
     {
+        if ($this->relationLoaded('invoices')) {
+            return (float) $this->invoices->sum('subtotal');
+        }
+
         return (float) $this->invoices()->sum('subtotal');
     }
 

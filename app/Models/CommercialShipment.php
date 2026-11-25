@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Models\Traits\BelongsToTenant;
-
+use App\Services\TransporterTrackingService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -80,7 +80,7 @@ class CommercialShipment extends Model
     public function getDistinctOrders(): Collection
     {
         return $this->items
-            ->map(fn($it) => $it->salesOrderItem?->salesOrder)
+            ->map(fn ($it) => $it->salesOrderItem?->salesOrder)
             ->filter()
             ->unique('id');
     }
@@ -91,6 +91,7 @@ class CommercialShipment extends Model
         if ($orders->isNotEmpty()) {
             return $orders->pluck('order_number')->join(', ');
         }
+
         return $this->salesOrder?->order_number ?? '—';
     }
 
@@ -98,8 +99,9 @@ class CommercialShipment extends Model
     {
         $orders = $this->getDistinctOrders();
         if ($orders->isNotEmpty()) {
-            return $orders->map(fn($o) => $o->customer?->company_name)->filter()->unique()->join(', ');
+            return $orders->map(fn ($o) => $o->customer?->company_name)->filter()->unique()->join(', ');
         }
+
         return $this->salesOrder?->customer?->company_name ?? '—';
     }
 
@@ -114,18 +116,24 @@ class CommercialShipment extends Model
         if ($this->freight_payment_type === 'PAID' && $this->freight_amount > 0) {
             return $matVal + (float) $this->freight_amount;
         }
+
         return $matVal;
     }
 
     public function getInvoicedMaterialAmountAttribute(): float
     {
+        if ($this->relationLoaded('invoices')) {
+            return (float) $this->invoices->sum('material_subtotal');
+        }
+
         return (float) $this->invoices()->sum('material_subtotal');
     }
 
     public function getRemainingInvoicableMaterialAmountAttribute(): float
     {
         $matVal = $this->material_value;
-        $invoiced = (float) $this->invoices()->sum('material_subtotal');
+        $invoiced = $this->invoiced_material_amount;
+
         return max(0, $matVal - $invoiced);
     }
 
@@ -136,17 +144,19 @@ class CommercialShipment extends Model
 
     public function getLrUrlAttribute(): ?string
     {
-        if (!empty($this->proof_document_url)) {
+        if (! empty($this->proof_document_url)) {
             if (str_starts_with($this->proof_document_url, 'http')) {
                 return $this->proof_document_url;
             }
-            return asset('storage/' . $this->proof_document_url);
+
+            return asset('storage/'.$this->proof_document_url);
         }
+
         return null;
     }
 
     public function getTrackingUrlAttribute(): ?string
     {
-        return \App\Services\TransporterTrackingService::getTrackingUrl($this->transporter, $this->lr_number);
+        return TransporterTrackingService::getTrackingUrl($this->transporter, $this->lr_number);
     }
 }

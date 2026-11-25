@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Models\Traits\BelongsToTenant;
-
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -44,11 +43,19 @@ class CommercialShipmentItem extends Model
 
     public function getInvoicedQuantityAttribute(): float
     {
+        if ($this->relationLoaded('invoiceItems')) {
+            return (float) $this->invoiceItems->sum('quantity');
+        }
+
         return (float) $this->invoiceItems()->sum('quantity');
     }
 
     public function getInvoicedAmountAttribute(): float
     {
+        if ($this->relationLoaded('invoiceItems')) {
+            return (float) $this->invoiceItems->sum('amount');
+        }
+
         return (float) $this->invoiceItems()->sum('amount');
     }
 
