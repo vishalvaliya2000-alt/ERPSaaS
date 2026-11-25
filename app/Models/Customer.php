@@ -167,16 +167,28 @@ class Customer extends Model
 
     public function getTotalOrderedQtyAttribute(): float
     {
+        if ($this->relationLoaded('salesOrders')) {
+            return (float) $this->salesOrders->flatMap(fn ($so) => $so->relationLoaded('items') ? $so->items : [])->sum('order_qty');
+        }
+
         return (float) $this->salesOrderItems()->sum('order_qty');
     }
 
     public function getTotalSuppliedQtyAttribute(): float
     {
+        if ($this->relationLoaded('salesOrders')) {
+            return (float) $this->salesOrders->flatMap(fn ($so) => $so->relationLoaded('items') ? $so->items : [])->sum('shipped_qty');
+        }
+
         return (float) $this->salesOrderItems()->sum('shipped_qty');
     }
 
     public function getTotalPendingQtyAttribute(): float
     {
+        if ($this->relationLoaded('salesOrders')) {
+            return (float) $this->salesOrders->flatMap(fn ($so) => $so->relationLoaded('items') ? $so->items : [])->sum('balance_qty');
+        }
+
         return (float) $this->salesOrderItems()->sum('balance_qty');
     }
 

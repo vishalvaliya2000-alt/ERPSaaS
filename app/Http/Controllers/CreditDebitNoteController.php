@@ -72,7 +72,7 @@ class CreditDebitNoteController extends Controller
             ->get(['id', 'company_name', 'customer_code', 'gst_number', 'state']);
 
         $invoices = Invoice::where('tenant_id', $tenantId)
-            ->with(['customer', 'items'])
+            ->with(['customer', 'items', 'creditDebitNotes'])
             ->orderByDesc('invoice_date')
             ->limit(100)
             ->get();

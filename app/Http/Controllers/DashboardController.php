@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\BusinessDocument;
 use App\Models\CommercialShipment;
 use App\Models\CommercialShipmentItem;
-use App\Models\Customer;
 use App\Models\FollowupTask;
 use App\Models\Invoice;
 use App\Models\Lead;
@@ -33,7 +32,7 @@ class DashboardController extends Controller
 
         // 1. FINANCIAL EXECUTIVE PULSE
         $tenantInvoices = Invoice::where('tenant_id', $tenantId)
-            ->with(['creditNotes', 'debitNotes'])
+            ->with(['creditDebitNotes'])
             ->get();
 
         $totalSales = 0.00;
@@ -143,6 +142,9 @@ class DashboardController extends Controller
         // 6. HIGH-IMPACT DECISION QUEUE (Unified & Strictly Deduplicated)
         $decisionQueue = collect();
 
+        // Index loaded invoices by invoice_number for fast in-memory task resolution
+        $tenantInvoicesKeyed = $tenantInvoices->keyBy('invoice_number');
+
         // Active Tasks from FollowupTask table
         $activeTasks = FollowupTask::with(['customer', 'lead'])
             ->where('tenant_id', $tenantId)
@@ -165,7 +167,7 @@ class DashboardController extends Controller
             // Auto-resolve tasks if the underlying invoice is already paid
             if ($t->type === 'PAYMENT_FOLLOWUP') {
                 if (preg_match('/(INV-[0-9]+|BOS[0-9]+)/i', $t->reason.' '.$t->pending_item, $invMatch)) {
-                    $inv = Invoice::where('tenant_id', $tenantId)->where('invoice_number', $invMatch[0])->first();
+                    $inv = $tenantInvoicesKeyed->get($invMatch[0]);
                     if ($inv && ($inv->balance_due <= 0 || $inv->status === 'PAID')) {
                         $t->update(['status' => 'COMPLETED', 'completed_at' => Carbon::now()]);
 
@@ -244,7 +246,11 @@ class DashboardController extends Controller
         }
 
         // 7. ACTIVE CONSIGNMENTS IN-TRANSIT (Transporter Feed)
-        $activeShipments = CommercialShipment::with(['salesOrder.customer', 'items.salesOrderItem.product'])
+        $activeShipments = CommercialShipment::with([
+            'salesOrder.customer',
+            'items.salesOrderItem.product',
+            'items.salesOrderItem.salesOrder.customer',
+        ])
             ->where('tenant_id', $tenantId)
             ->whereIn('status', ['DISPATCHED', 'IN_TRANSIT'])
             ->orderByDesc('shipment_date')
@@ -275,12 +281,8 @@ class DashboardController extends Controller
                 ];
             });
 
-        // 8. KEY ACCOUNTS SUMMARY
-        $keyAccounts = Customer::with(['salesOrders', 'invoices'])
-            ->where('tenant_id', $tenantId)
-            ->orderByDesc('total_revenue')
-            ->take(4)
-            ->get();
+        // 8. KEY ACCOUNTS SUMMARY (Unused in view, keep lightweight collection)
+        $keyAccounts = collect();
 
         // 9. DAILY EXECUTION PROGRESS
         $completedTodayCount = $completedTodayTasks->count();
@@ -327,29 +329,38 @@ class DashboardController extends Controller
         $today = Carbon::today();
 
         // Metric 1: POs this month
-        $posThisMonthQuery = BusinessDocument::where('tenant_id', $tenantId)
+        $posStats = BusinessDocument::where('tenant_id', $tenantId)
             ->where('document_type', 'PO')
             ->where(function ($q) use ($thisMonthStart, $thisMonthEnd) {
                 $q->whereBetween('document_date', [$thisMonthStart, $thisMonthEnd])
                     ->orWhereBetween('created_at', [$thisMonthStart, $thisMonthEnd]);
-            });
-        $posThisMonthCount = (clone $posThisMonthQuery)->count();
-        $posThisMonthValue = (float) (clone $posThisMonthQuery)->sum('total_amount');
+            })
+            ->selectRaw('COUNT(*) as total_count, COALESCE(SUM(total_amount), 0) as total_value')
+            ->first();
+
+        $posThisMonthCount = (int) ($posStats->total_count ?? 0);
+        $posThisMonthValue = (float) ($posStats->total_value ?? 0);
+
         if ($posThisMonthCount === 0) {
-            $soThisMonth = SalesOrder::where('tenant_id', $tenantId)
-                ->whereBetween('created_at', [$thisMonthStart, $thisMonthEnd]);
-            $posThisMonthCount = (clone $soThisMonth)->count();
-            $posThisMonthValue = (float) (clone $soThisMonth)->sum('total_amount');
+            $soStats = SalesOrder::where('tenant_id', $tenantId)
+                ->whereBetween('created_at', [$thisMonthStart, $thisMonthEnd])
+                ->selectRaw('COUNT(*) as total_count, COALESCE(SUM(total_amount), 0) as total_value')
+                ->first();
+            $posThisMonthCount = (int) ($soStats->total_count ?? 0);
+            $posThisMonthValue = (float) ($soStats->total_value ?? 0);
         }
 
         // Metric 2: Invoices this month
-        $invoicesThisMonthQuery = Invoice::where('tenant_id', $tenantId)
+        $invStats = Invoice::where('tenant_id', $tenantId)
             ->where(function ($q) use ($thisMonthStart, $thisMonthEnd) {
                 $q->whereBetween('invoice_date', [$thisMonthStart, $thisMonthEnd])
                     ->orWhereBetween('created_at', [$thisMonthStart, $thisMonthEnd]);
-            });
-        $invoicesThisMonthCount = (clone $invoicesThisMonthQuery)->count();
-        $invoicesThisMonthValue = (float) (clone $invoicesThisMonthQuery)->sum('total_amount');
+            })
+            ->selectRaw('COUNT(*) as total_count, COALESCE(SUM(total_amount), 0) as total_value')
+            ->first();
+
+        $invoicesThisMonthCount = (int) ($invStats->total_count ?? 0);
+        $invoicesThisMonthValue = (float) ($invStats->total_value ?? 0);
 
         // Total documents breakdown
         $totalPOsCount = BusinessDocument::where('tenant_id', $tenantId)->where('document_type', 'PO')->count();
@@ -410,10 +421,13 @@ class DashboardController extends Controller
             ->latest()
             ->take(5)
             ->get();
-        $unshippedOrdersCount = SalesOrder::where('tenant_id', $tenantId)
-            ->whereIn('status', ['PENDING', 'CONFIRMED', 'PROCESSING'])
-            ->whereDoesntHave('shipments')
-            ->count();
+
+        $unshippedOrdersCount = $unshippedOrders->count() < 5
+            ? $unshippedOrders->count()
+            : SalesOrder::where('tenant_id', $tenantId)
+                ->whereIn('status', ['PENDING', 'CONFIRMED', 'PROCESSING'])
+                ->whereDoesntHave('shipments')
+                ->count();
 
         $documentMetrics = [
             'pos_this_month_count' => $posThisMonthCount,

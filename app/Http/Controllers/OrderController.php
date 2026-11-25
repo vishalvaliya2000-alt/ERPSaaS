@@ -25,7 +25,7 @@ class OrderController extends Controller
 
     public function index()
     {
-        $orders = SalesOrder::with(['customer', 'items.product', 'shipments.items', 'invoices', 'revisions', 'poDocument.activeVersion'])
+        $orders = SalesOrder::with(['customer', 'items.product', 'shipments.items', 'invoices', 'paymentReceipts', 'revisions', 'poDocument.activeVersion'])
             ->orderByDesc('order_date')
             ->get();
 
