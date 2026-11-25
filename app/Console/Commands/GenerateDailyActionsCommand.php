@@ -79,11 +79,11 @@ class GenerateDailyActionsCommand extends Command
 
             // 2. SCAN OVERDUE & UPCOMING PAYMENT INVOICES
             $unpaidInvoices = Invoice::withoutGlobalScopes()
-                ->with('customer')
+                ->with(['customer', 'creditDebitNotes'])
                 ->where('tenant_id', $tenant->id)
-                ->where('balance_due', '>', 0)
                 ->orderBy('due_date')
-                ->get();
+                ->get()
+                ->filter(fn ($i) => ! $i->is_settled && $i->adjusted_balance_due > 0);
 
             foreach ($unpaidInvoices as $inv) {
                 $dueDate = $inv->due_date ? Carbon::parse($inv->due_date)->startOfDay() : $today;
@@ -101,8 +101,8 @@ class GenerateDailyActionsCommand extends Command
                     $phone = $inv->customer?->primary_phone ?: ($inv->customer?->phone ?: '');
 
                     $reasonText = $isOverdue
-                        ? "Payment follow-up for Tax Invoice {$inv->invoice_number} (".formatINR($inv->balance_due).") - {$overdueDaysCount}d overdue"
-                        : "Payment due soon: Tax Invoice {$inv->invoice_number} (".formatINR($inv->balance_due).')';
+                        ? "Payment follow-up for Tax Invoice {$inv->invoice_number} (".formatINR($inv->adjusted_balance_due).") - {$overdueDaysCount}d overdue"
+                        : "Payment due soon: Tax Invoice {$inv->invoice_number} (".formatINR($inv->adjusted_balance_due).')';
 
                     $nextAction = 'Send WhatsApp invoice reminder and check expected RTGS payment date';
 
@@ -116,7 +116,7 @@ class GenerateDailyActionsCommand extends Command
                         'priority' => $priority,
                         'due_date' => $dueDate,
                         'status' => 'PENDING',
-                        'pending_item' => "Invoice {$inv->invoice_number} balance ".formatINR($inv->balance_due),
+                        'pending_item' => "Invoice {$inv->invoice_number} balance ".formatINR($inv->adjusted_balance_due),
                         'next_action' => $nextAction,
                     ]);
 
@@ -177,9 +177,9 @@ class GenerateDailyActionsCommand extends Command
                 }
 
                 // Check remarks on order, customer, and completed tasks
-                $combinedRemarks = strtolower(($order->notes ?? '') . ' ' . ($order->customer?->notes ?? ''));
+                $combinedRemarks = strtolower(($order->notes ?? '').' '.($order->customer?->notes ?? ''));
 
-                $hasClientRequirementRemark = 
+                $hasClientRequirementRemark =
                     str_contains($combinedRemarks, 'as per client requirement') ||
                     str_contains($combinedRemarks, 'per client requirement') ||
                     str_contains($combinedRemarks, 'client requirement') ||
@@ -209,7 +209,7 @@ class GenerateDailyActionsCommand extends Command
                 $poNumber = $order->po_number ?: $order->order_number;
                 $clientDisplayName = $order->customer?->company_name ?? 'Client';
 
-                $reasonText = "Dispatch fulfillment pending for PO {$poNumber} ({$clientDisplayName}) - " . number_format($pendingQty) . ' KG remaining';
+                $reasonText = "Dispatch fulfillment pending for PO {$poNumber} ({$clientDisplayName}) - ".number_format($pendingQty).' KG remaining';
                 $priority = ($daysSinceContract >= 7) ? 'HIGH' : 'MEDIUM';
 
                 FollowupTask::withoutGlobalScopes()->create([
@@ -222,7 +222,7 @@ class GenerateDailyActionsCommand extends Command
                     'priority' => $priority,
                     'due_date' => $today,
                     'status' => 'PENDING',
-                    'pending_item' => "PO {$poNumber} (" . number_format($pendingQty) . ' KG pending)',
+                    'pending_item' => "PO {$poNumber} (".number_format($pendingQty).' KG pending)',
                     'next_action' => 'Check factory finished goods stock or confirm delivery schedule with buyer',
                 ]);
 

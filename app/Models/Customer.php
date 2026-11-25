@@ -185,6 +185,64 @@ class Customer extends Model
         return $this->hasMany(CreditDebitNote::class, 'customer_id');
     }
 
+    /**
+     * Compute total unadjusted advances currently held across all open sales orders.
+     */
+    public function totalUnadjustedAdvanceAmount(): float
+    {
+        $orders = $this->salesOrders()->where('advance_received', '>', 0)->with('paymentReceipts')->get();
+        $total = 0.00;
+        foreach ($orders as $so) {
+            $total += $so->unadjustedAdvanceAmount();
+        }
+
+        return round($total, 2);
+    }
+
+    /**
+     * Authoritatively recalculate and synchronize customer outstanding_amount.
+     * Outstanding Amount = max(0, sum(invoice adjusted receivables) + standalone debits - unadjusted PO advances - standalone credits)
+     */
+    public function recalculateOutstandingAmount(): float
+    {
+        $invoices = $this->invoices()->with(['creditNotes', 'debitNotes'])->get();
+        $totalInvoiceDue = 0.00;
+        foreach ($invoices as $inv) {
+            $totalInvoiceDue += $inv->adjusted_balance_due;
+        }
+
+        $unadjustedAdvances = $this->totalUnadjustedAdvanceAmount();
+
+        $standaloneCredits = (float) $this->creditDebitNotes()
+            ->whereNull('invoice_id')
+            ->whereIn('note_type', ['CREDIT_NOTE', 'CREDIT'])
+            ->where('status', '!=', 'CANCELLED')
+            ->sum('total_amount');
+
+        $standaloneDebits = (float) $this->creditDebitNotes()
+            ->whereNull('invoice_id')
+            ->whereIn('note_type', ['DEBIT_NOTE', 'DEBIT'])
+            ->where('status', '!=', 'CANCELLED')
+            ->sum('total_amount');
+
+        $grossDue = $totalInvoiceDue + $standaloneDebits;
+        $totalDeductions = $unadjustedAdvances + $standaloneCredits;
+
+        $netOutstanding = max(0.00, round($grossDue - $totalDeductions, 2));
+
+        $this->update(['outstanding_amount' => $netOutstanding]);
+
+        return $netOutstanding;
+    }
+
+    /**
+     * Dynamic accessor for adjusted outstanding amount
+     */
+    public function getAdjustedOutstandingAmountAttribute(): float
+    {
+        return (float) $this->outstanding_amount;
+    }
+
     public function getFulfillmentPercentageAttribute(): float
     {
         $ordered = $this->total_ordered_qty;

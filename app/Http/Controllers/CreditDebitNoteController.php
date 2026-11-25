@@ -8,7 +8,6 @@ use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Tenant;
 use App\Services\TenantManager;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -31,15 +30,15 @@ class CreditDebitNoteController extends Controller
             ->orderByDesc('note_date')
             ->orderByDesc('id');
 
-        if (!empty($search)) {
+        if (! empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('note_number', 'like', "%{$search}%")
-                  ->orWhere('original_invoice_number', 'like', "%{$search}%")
-                  ->orWhere('reason', 'like', "%{$search}%")
-                  ->orWhereHas('customer', function ($cq) use ($search) {
-                      $cq->where('company_name', 'like', "%{$search}%")
-                         ->orWhere('customer_code', 'like', "%{$search}%");
-                  });
+                    ->orWhere('original_invoice_number', 'like', "%{$search}%")
+                    ->orWhere('reason', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($cq) use ($search) {
+                        $cq->where('company_name', 'like', "%{$search}%")
+                            ->orWhere('customer_code', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -124,11 +123,11 @@ class CreditDebitNoteController extends Controller
                 'product_id' => $it->product_id,
                 'description' => $it->product?->product_name ?? 'Line Item',
                 'hsn_code' => $it->product?->hsn_code ?? '07129020',
-                'quantity' => (float)$it->quantity,
+                'quantity' => (float) $it->quantity,
                 'uom' => $it->product?->uom ?? 'KGS',
-                'rate' => (float)$it->rate,
-                'amount' => (float)$it->amount,
-                'tax_rate_percent' => (float)($it->product?->tax_rate_percent ?? 5.00),
+                'rate' => (float) $it->rate,
+                'amount' => (float) $it->amount,
+                'tax_rate_percent' => (float) ($it->product?->tax_rate_percent ?? 5.00),
             ];
         });
 
@@ -138,8 +137,12 @@ class CreditDebitNoteController extends Controller
                 'id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
                 'invoice_date' => $invoice->invoice_date ? $invoice->invoice_date->format('Y-m-d') : '',
-                'total_amount' => (float)$invoice->total_amount,
-                'balance_due' => (float)$invoice->balance_due,
+                'total_amount' => (float) $invoice->total_amount,
+                'balance_due' => (float) $invoice->balance_due,
+                'adjusted_total_amount' => (float) $invoice->adjusted_total_amount,
+                'adjusted_balance_due' => (float) $invoice->adjusted_balance_due,
+                'total_credited_amount' => (float) $invoice->total_credited_amount,
+                'total_debited_amount' => (float) $invoice->total_debited_amount,
                 'customer_id' => $invoice->customer_id,
                 'customer_name' => $invoice->customer?->company_name ?? 'Unknown',
                 'customer_gst' => $invoice->customer?->gst_number ?? '',
@@ -179,32 +182,46 @@ class CreditDebitNoteController extends Controller
 
         $customer = Customer::findOrFail($validated['customer_id']);
         $invoiceId = $validated['invoice_id'] ?? null;
-        $invoice = !empty($invoiceId) ? Invoice::find($invoiceId) : null;
-        $originalInvNumber = ($validated['original_invoice_number'] ?? null) ?: ($invoice?->invoice_number);
+        $originalInvNumber = $validated['original_invoice_number'] ?? null;
 
         // Check if interstate trade
         $isInterstate = false;
-        if (!empty($customer->gst_number) && !empty($tenant?->tax_id_number)) {
+        if (! empty($customer->gst_number) && ! empty($tenant?->tax_id_number)) {
             $custCode = substr(trim($customer->gst_number), 0, 2);
             $tenantCode = substr(trim($tenant->tax_id_number), 0, 2);
             $isInterstate = ($custCode !== $tenantCode);
-        } elseif (!empty($customer->state) && !empty($tenant?->state)) {
+        } elseif (! empty($customer->state) && ! empty($tenant?->state)) {
             $isInterstate = (strcasecmp(trim($customer->state), trim($tenant->state)) !== 0);
         }
 
         DB::beginTransaction();
         try {
+            // Strict consistent lock hierarchy: INVOICE first, CUSTOMER second
+            $invoiceLocked = null;
+            if (! empty($invoiceId)) {
+                $invoiceLocked = Invoice::where('id', $invoiceId)
+                    ->where('tenant_id', $tenantId)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                $originalInvNumber = $originalInvNumber ?: $invoiceLocked->invoice_number;
+            }
+
+            $custLocked = Customer::where('id', $customer->id)
+                ->where('tenant_id', $tenantId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             // Compute Subtotal and Taxes
             $subtotal = 0.00;
             $taxAmount = 0.00;
             $preparedItems = [];
 
             foreach ($validated['items'] as $item) {
-                $qty = (float)($item['quantity'] ?? 0);
-                $rate = (float)($item['rate'] ?? 0);
+                $qty = (float) ($item['quantity'] ?? 0);
+                $rate = (float) ($item['rate'] ?? 0);
                 $itemSubtotal = round($qty * $rate, 2);
 
-                $taxRate = isset($item['tax_rate_percent']) ? (float)$item['tax_rate_percent'] : 5.00;
+                $taxRate = isset($item['tax_rate_percent']) ? (float) $item['tax_rate_percent'] : 5.00;
                 $itemTax = round($itemSubtotal * ($taxRate / 100), 2);
                 $itemTotal = round($itemSubtotal + $itemTax, 2);
 
@@ -229,6 +246,31 @@ class CreditDebitNoteController extends Controller
 
             $totalAmount = round($subtotal + $taxAmount, 2);
 
+            $isCredit = in_array($validated['note_type'], [CreditDebitNote::TYPE_CREDIT, 'CREDIT']);
+            if ($isCredit && $invoiceLocked) {
+                // RULE D-1: Credit note cannot exceed unpaid adjusted balance due on the invoice
+                $maxAllowableCredit = (float) $invoiceLocked->adjusted_balance_due;
+                if ($maxAllowableCredit <= 0.00) {
+                    DB::rollBack();
+                    $msg = "🚫 Disallowed: Invoice {$invoiceLocked->invoice_number} is already fully settled. Credit notes cannot be issued against fully settled invoices without customer credit/refund allocation tracking.";
+                    if ($request->wantsJson() || $request->ajax()) {
+                        return response()->json(['success' => false, 'message' => $msg], 422);
+                    }
+
+                    return back()->withInput()->with('error', $msg);
+                }
+
+                if ($totalAmount > round($maxAllowableCredit, 2)) {
+                    DB::rollBack();
+                    $msg = '🚫 Disallowed: Credit note total ('.formatINR($totalAmount).') exceeds invoice remaining unpaid balance ('.formatINR($maxAllowableCredit).") on {$invoiceLocked->invoice_number}.";
+                    if ($request->wantsJson() || $request->ajax()) {
+                        return response()->json(['success' => false, 'message' => $msg], 422);
+                    }
+
+                    return back()->withInput()->with('error', $msg);
+                }
+            }
+
             // Interstate tax breakdown
             if ($isInterstate) {
                 $igstAmount = $taxAmount;
@@ -243,7 +285,7 @@ class CreditDebitNoteController extends Controller
             $note = CreditDebitNote::create([
                 'tenant_id' => $tenantId,
                 'customer_id' => $customer->id,
-                'invoice_id' => $invoice?->id,
+                'invoice_id' => $invoiceLocked?->id,
                 'note_type' => $validated['note_type'],
                 'note_number' => strtoupper(trim($validated['note_number'])),
                 'note_date' => $validated['note_date'],
@@ -266,6 +308,9 @@ class CreditDebitNoteController extends Controller
                 CreditDebitNoteItem::create($pItem);
             }
 
+            // Always reconcile customer outstanding under lock
+            $custLocked->recalculateOutstandingAmount();
+
             DB::commit();
 
             if ($request->wantsJson() || $request->ajax()) {
@@ -280,7 +325,7 @@ class CreditDebitNoteController extends Controller
                 ->with('success', "✓ {$note->type_label} '{$note->note_number}' created successfully!");
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Failed to create Credit/Debit Note: ' . $e->getMessage(), [
+            Log::error('Failed to create Credit/Debit Note: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'request' => $request->all(),
             ]);
@@ -288,11 +333,11 @@ class CreditDebitNoteController extends Controller
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to create note: ' . $e->getMessage(),
+                    'message' => 'Failed to create note: '.$e->getMessage(),
                 ], 500);
             }
 
-            return back()->withInput()->with('error', 'Failed to create note: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Failed to create note: '.$e->getMessage());
         }
     }
 
@@ -332,17 +377,54 @@ class CreditDebitNoteController extends Controller
     public function cancel(Request $request, $id)
     {
         $tenantId = TenantManager::getTenantId() ?? 1;
-        $note = CreditDebitNote::where('tenant_id', $tenantId)->findOrFail($id);
 
-        if ($note->status === CreditDebitNote::STATUS_CANCELLED) {
-            return back()->with('info', "Note '{$note->note_number}' is already cancelled.");
+        DB::beginTransaction();
+        try {
+            $note = CreditDebitNote::where('tenant_id', $tenantId)->lockForUpdate()->findOrFail($id);
+
+            if ($note->status === CreditDebitNote::STATUS_CANCELLED) {
+                DB::rollBack();
+
+                return back()->with('info', "Note '{$note->note_number}' is already cancelled.");
+            }
+
+            // Lock linked invoice under consistent lock hierarchy: Invoice first, Customer second
+            $inv = null;
+            if ($note->invoice_id) {
+                $inv = Invoice::where('id', $note->invoice_id)->lockForUpdate()->first();
+            }
+
+            // If cancelling a debit note, verify that recorded payments don't exceed resulting invoice total
+            if ($note->is_debit_note && $inv) {
+                $hypotheticalTotal = (float) $inv->total_amount + ((float) $inv->total_debited_amount - (float) $note->total_amount) - (float) $inv->total_credited_amount;
+                if ((float) $inv->amount_received > round($hypotheticalTotal, 2)) {
+                    DB::rollBack();
+
+                    return back()->with('error', "🚫 Disallowed: Cannot cancel Debit Note '{$note->note_number}' because recorded payments (".formatINR($inv->amount_received).') exceed the resulting invoice total ('.formatINR($hypotheticalTotal).').');
+                }
+            }
+
+            $note->update([
+                'status' => CreditDebitNote::STATUS_CANCELLED,
+                'notes' => ($note->notes ? $note->notes."\n" : '').'Cancelled on '.date('Y-m-d H:i').' by user #'.auth()->id(),
+            ]);
+
+            // Reconcile customer balances
+            if ($note->customer_id) {
+                $cust = Customer::where('id', $note->customer_id)->lockForUpdate()->first();
+                if ($cust) {
+                    $cust->recalculateOutstandingAmount();
+                }
+            }
+
+            DB::commit();
+
+            return back()->with('success', "✓ {$note->type_label} '{$note->note_number}' has been cancelled.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to cancel note #{$id}: ".$e->getMessage());
+
+            return back()->with('error', 'Failed to cancel note: '.$e->getMessage());
         }
-
-        $note->update([
-            'status' => CreditDebitNote::STATUS_CANCELLED,
-            'notes' => ($note->notes ? $note->notes . "\n" : '') . "Cancelled on " . date('Y-m-d H:i') . " by user #" . auth()->id(),
-        ]);
-
-        return back()->with('success', "✓ {$note->type_label} '{$note->note_number}' has been cancelled.");
     }
 }

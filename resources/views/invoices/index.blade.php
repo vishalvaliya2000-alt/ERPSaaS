@@ -107,7 +107,7 @@
                 class="px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 font-display"
             >
                 <span>⏳ Awaiting Payment</span>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono" :class="filterStatus === 'UNPAID' ? 'bg-neutral-800 text-[#D7FF53]' : 'bg-amber-100 text-amber-800'">{{ $invoices->where('balance_due', '>', 0)->count() }}</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono" :class="filterStatus === 'UNPAID' ? 'bg-neutral-800 text-[#D7FF53]' : 'bg-amber-100 text-amber-800'">{{ $invoices->filter(fn($i) => ! $i->is_settled && $i->adjusted_balance_due > 0)->count() }}</span>
             </button>
 
             <button
@@ -117,7 +117,7 @@
                 class="px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 font-display"
             >
                 <span>🚨 Overdue</span>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono" :class="filterStatus === 'OVERDUE' ? 'bg-neutral-800 text-[#D7FF53]' : 'bg-rose-100 text-rose-800'">{{ $invoices->filter(fn($i) => $i->balance_due > 0 && $i->due_date->isPast())->count() }}</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono" :class="filterStatus === 'OVERDUE' ? 'bg-neutral-800 text-[#D7FF53]' : 'bg-rose-100 text-rose-800'">{{ $invoices->filter(fn($i) => ! $i->is_settled && $i->adjusted_balance_due > 0 && $i->due_date->isPast())->count() }}</span>
             </button>
 
             <button
@@ -127,7 +127,7 @@
                 class="px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 font-display"
             >
                 <span>✓ Fully Settled</span>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono" :class="filterStatus === 'PAID' ? 'bg-neutral-800 text-[#D7FF53]' : 'bg-emerald-100 text-emerald-800'">{{ $invoices->where('status', 'PAID')->count() }}</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono" :class="filterStatus === 'PAID' ? 'bg-neutral-800 text-[#D7FF53]' : 'bg-emerald-100 text-emerald-800'">{{ $invoices->filter(fn($i) => $i->status === 'PAID' || $i->is_settled)->count() }}</span>
             </button>
         </div>
 
@@ -188,7 +188,7 @@
                 $searchHaystack = strtolower("{$inv->invoice_number} {$inv->customer->company_name} {$inv->display_po_numbers} " . ($effectiveShipment?->lr_number ?? ''));
             @endphp
             <div
-                x-show="matchesFilter('{{ $inv->status }}', {{ $rel['isOverdue'] ? 'true' : 'false' }}, '{{ addslashes($searchHaystack) }}')"
+                x-show="matchesFilter('{{ $inv->is_settled ? 'SETTLED' : $inv->status }}', {{ $rel['isOverdue'] && ! $inv->is_settled ? 'true' : 'false' }}, '{{ addslashes($searchHaystack) }}')"
                 class="bg-white rounded-3xl border border-neutral-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden group"
             >
                 <!-- Card Header: Invoice No + Status Pill -->
@@ -218,14 +218,14 @@
                         class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 border font-mono"
                         :class="{
                             'bg-emerald-50 text-emerald-800 border-emerald-200': '{{ $inv->status }}' === 'PAID',
-                            'bg-rose-50 text-rose-700 border-rose-200 animate-pulse': {{ $rel['isOverdue'] && $inv->balance_due > 0 ? 'true' : 'false' }},
+                            'bg-rose-50 text-rose-700 border-rose-200 animate-pulse': {{ $rel['isOverdue'] && $inv->adjusted_balance_due > 0 ? 'true' : 'false' }},
                             'bg-amber-50 text-amber-800 border-amber-200': '{{ $inv->status }}' === 'PART_PAID',
-                            'bg-[#F5F6F8] text-neutral-700 border-neutral-200/80': '{{ $inv->status }}' !== 'PAID' && '{{ $inv->status }}' !== 'PART_PAID' && !{{ $rel['isOverdue'] && $inv->balance_due > 0 ? 'true' : 'false' }}
+                            'bg-[#F5F6F8] text-neutral-700 border-neutral-200/80': '{{ $inv->status }}' !== 'PAID' && '{{ $inv->status }}' !== 'PART_PAID' && !{{ $rel['isOverdue'] && $inv->adjusted_balance_due > 0 ? 'true' : 'false' }}
                         }"
                     >
-                        @if($inv->status === 'PAID') ✓ Settled
-                        @elseif($rel['isOverdue'] && $inv->balance_due > 0) 🚨 Overdue
-                        @elseif($inv->status === 'PART_PAID') ⚡ Part Paid
+                        @if($inv->status === 'PAID' || $inv->is_settled) ✓ Settled
+                        @elseif($rel['isOverdue'] && $inv->adjusted_balance_due > 0) 🚨 Overdue
+                        @elseif($inv->status === 'PART_PAID' || $inv->amount_received > 0) ⚡ Part Paid
                         @else ⏳ Issued
                         @endif
                     </span>
@@ -239,7 +239,7 @@
                             <a href="{{ route('customers.show', $inv->customer_id) }}" class="font-black text-sm text-neutral-900 hover:text-neutral-600 truncate font-display" title="{{ $inv->customer->company_name }}">
                                 {{ $inv->customer->company_name ?? 'Client' }}
                             </a>
-                            <span class="text-[10px] font-bold shrink-0 px-2 py-0.5 rounded-full font-mono {{ $rel['isOverdue'] && $inv->balance_due > 0 ? 'bg-rose-50 text-rose-700 border border-rose-200 font-extrabold' : 'bg-[#F5F6F8] text-neutral-600 border border-neutral-200/60' }}">
+                            <span class="text-[10px] font-bold shrink-0 px-2 py-0.5 rounded-full font-mono {{ $rel['isOverdue'] && $inv->adjusted_balance_due > 0 ? 'bg-rose-50 text-rose-700 border border-rose-200 font-extrabold' : 'bg-[#F5F6F8] text-neutral-600 border border-neutral-200/60' }}">
                                 {{ $rel['text'] }}
                             </span>
                         </div>
@@ -285,18 +285,38 @@
                         </div>
                     </div>
 
+                    @php
+                        $effectiveTotal = $inv->adjusted_total_amount;
+                        $effectiveCollected = $effectiveTotal > 0 ? min(100, round(($inv->amount_received / $effectiveTotal) * 100)) : 100;
+                    @endphp
+
                     <!-- Payment Progress Bar -->
                     <div class="space-y-1">
                         <div class="flex items-center justify-between text-[11px]">
                             <span class="font-bold text-neutral-600">Settlement Progress</span>
-                            <span class="font-mono font-bold {{ $inv->balance_due > 0 ? 'text-amber-700' : 'text-emerald-700' }}">
-                                {{ $pctCollected }}% Collected
+                            <span class="font-mono font-bold {{ $inv->adjusted_balance_due > 0 ? 'text-amber-700' : 'text-emerald-700' }}">
+                                {{ $effectiveCollected }}% Collected
                             </span>
                         </div>
                         <div class="w-full h-2 rounded-full bg-neutral-100 overflow-hidden flex">
-                            <div class="h-full bg-[#091315] rounded-full transition-all duration-500" style="width: {{ $pctCollected }}%"></div>
+                            <div class="h-full bg-[#091315] rounded-full transition-all duration-500" style="width: {{ $effectiveCollected }}%"></div>
                         </div>
                     </div>
+
+                    @if($inv->total_debited_amount > 0 || $inv->total_credited_amount > 0)
+                        <!-- Notes Adjustment Indicator Pill -->
+                        <div class="flex items-center justify-between text-[10px] font-mono font-bold px-2.5 py-1.5 bg-amber-50/80 border border-amber-200/80 rounded-xl text-amber-900">
+                            <span>📑 Linked Notes:</span>
+                            <span class="space-x-1.5">
+                                @if($inv->total_debited_amount > 0)
+                                    <span class="text-amber-800 font-extrabold">+{{ formatINR($inv->total_debited_amount) }} DN</span>
+                                @endif
+                                @if($inv->total_credited_amount > 0)
+                                    <span class="text-rose-700 font-extrabold">-{{ formatINR($inv->total_credited_amount) }} CN</span>
+                                @endif
+                            </span>
+                        </div>
+                    @endif
 
                     <!-- 3-Tile Financial Breakdown -->
                     <div class="grid grid-cols-3 gap-2 pt-2 border-t border-neutral-100 text-center">
@@ -305,7 +325,9 @@
                             <span class="font-black text-neutral-900 text-xs mt-0.5 block truncate font-mono">
                                 {{ formatINR($inv->total_amount) }}
                             </span>
-                            @if($inv->freight_amount > 0)
+                            @if($inv->total_debited_amount > 0 || $inv->total_credited_amount > 0)
+                                <span class="text-[8px] text-amber-800 font-extrabold block truncate font-mono">Adj: {{ formatINR($inv->adjusted_total_amount) }}</span>
+                            @elseif($inv->freight_amount > 0)
                                 <span class="text-[8px] text-emerald-700 font-bold block truncate font-mono">(+{{ formatINR($inv->freight_amount) }})</span>
                             @endif
                         </div>
@@ -317,12 +339,12 @@
                             </span>
                         </div>
 
-                        <div class="p-2 rounded-2xl border {{ $inv->balance_due > 0 ? 'bg-rose-50/50 border-rose-100' : 'bg-[#F5F6F8] border-neutral-200/60' }}">
-                            <span class="text-[9px] uppercase tracking-wider font-bold block font-mono {{ $inv->balance_due > 0 ? 'text-rose-700' : 'text-neutral-400' }}">
+                        <div class="p-2 rounded-2xl border {{ $inv->adjusted_balance_due > 0 ? 'bg-rose-50/50 border-rose-100' : 'bg-[#F5F6F8] border-neutral-200/60' }}">
+                            <span class="text-[9px] uppercase tracking-wider font-bold block font-mono {{ $inv->adjusted_balance_due > 0 ? 'text-rose-700' : 'text-neutral-400' }}">
                                 Due
                             </span>
-                            <span class="font-black text-xs mt-0.5 block truncate font-mono {{ $inv->balance_due > 0 ? 'text-rose-700' : 'text-neutral-400' }}">
-                                {{ formatINR($inv->balance_due) }}
+                            <span class="font-black text-xs mt-0.5 block truncate font-mono {{ $inv->adjusted_balance_due > 0 ? 'text-rose-700' : 'text-neutral-400' }}">
+                                {{ formatINR($inv->adjusted_balance_due) }}
                             </span>
                         </div>
                     </div>
@@ -331,10 +353,10 @@
                 <!-- Card Footer Actions -->
                 <div class="p-3 bg-[#F5F6F8]/80 border-t border-neutral-100 flex items-center justify-between gap-2">
                     <div>
-                        @if($inv->balance_due > 0)
+                        @if($inv->adjusted_balance_due > 0)
                             <button
                                 type="button"
-                                @click="openReceiptModal({{ $inv->id }}, {{ $inv->balance_due }})"
+                                @click="openReceiptModal({{ $inv->id }}, {{ $inv->adjusted_balance_due }})"
                                 class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-extrabold text-[#091315] bg-[#D7FF53] hover:bg-[#c8f043] border border-[#c8f043] shadow-2xs transition-transform active:scale-95 cursor-pointer"
                             >
                                 <span>💳</span>
@@ -433,7 +455,7 @@
                             $searchHaystack = strtolower("{$inv->invoice_number} {$inv->customer->company_name} {$inv->display_po_numbers} " . ($effectiveShipment?->lr_number ?? ''));
                         @endphp
                         <tr
-                            x-show="matchesFilter('{{ $inv->status }}', {{ $rel['isOverdue'] ? 'true' : 'false' }}, '{{ addslashes($searchHaystack) }}')"
+                            x-show="matchesFilter('{{ $inv->is_settled ? 'SETTLED' : $inv->status }}', {{ $rel['isOverdue'] && ! $inv->is_settled ? 'true' : 'false' }}, '{{ addslashes($searchHaystack) }}')"
                             class="hover:bg-[#F5F6F8]/70 transition-colors"
                         >
                             <!-- 1. Invoice No. -->
@@ -503,9 +525,20 @@
                             <!-- 6. Invoice Amount -->
                             <td class="py-3.5 px-4 text-right whitespace-nowrap">
                                 <span class="font-black text-neutral-900 text-xs font-mono block">{{ formatINR($inv->total_amount) }}</span>
-                                <span class="text-[10px] text-neutral-400 font-mono block mt-0.5">Taxable: {{ formatINR($inv->subtotal) }}</span>
-                                @if($inv->freight_amount > 0)
+                                @if($inv->total_debited_amount > 0 || $inv->total_credited_amount > 0)
+                                    <span class="text-[9px] text-amber-800 font-extrabold font-mono block">Adj: {{ formatINR($inv->adjusted_total_amount) }}</span>
+                                    <span class="text-[8px] text-neutral-500 font-mono block">
+                                        @if($inv->total_debited_amount > 0)
+                                            +{{ formatINR($inv->total_debited_amount) }} DN
+                                        @endif
+                                        @if($inv->total_credited_amount > 0)
+                                            -{{ formatINR($inv->total_credited_amount) }} CN
+                                        @endif
+                                    </span>
+                                @elseif($inv->freight_amount > 0)
                                     <span class="text-[9px] text-emerald-700 font-mono font-bold block">(+{{ formatINR($inv->freight_amount) }} Frt)</span>
+                                @else
+                                    <span class="text-[10px] text-neutral-400 font-mono block mt-0.5">Taxable: {{ formatINR($inv->subtotal) }}</span>
                                 @endif
                             </td>
 
@@ -516,15 +549,15 @@
 
                             <!-- 8. Balance Due -->
                             <td class="py-3.5 px-4 text-right whitespace-nowrap">
-                                <span class="font-black text-xs font-mono block {{ $inv->balance_due > 0 ? 'text-rose-600' : 'text-neutral-400' }}">
-                                    {{ formatINR($inv->balance_due) }}
+                                <span class="font-black text-xs font-mono block {{ $inv->adjusted_balance_due > 0 ? 'text-rose-600' : 'text-neutral-400' }}">
+                                    {{ formatINR($inv->adjusted_balance_due) }}
                                 </span>
                             </td>
 
                             <!-- 9. Due Date & Aging -->
                             <td class="py-3.5 px-4 whitespace-nowrap">
                                 <span class="font-mono text-xs text-neutral-700 block">{{ $inv->due_date->format('d M Y') }}</span>
-                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full font-mono mt-0.5 inline-block {{ $rel['isOverdue'] && $inv->balance_due > 0 ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-[#F5F6F8] text-neutral-600 border border-neutral-200/60' }}">
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full font-mono mt-0.5 inline-block {{ $rel['isOverdue'] && $inv->adjusted_balance_due > 0 ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-[#F5F6F8] text-neutral-600 border border-neutral-200/60' }}">
                                     {{ $rel['text'] }}
                                 </span>
                             </td>
@@ -535,14 +568,14 @@
                                     class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border font-mono inline-block"
                                     :class="{
                                         'bg-emerald-50 text-emerald-800 border-emerald-200': '{{ $inv->status }}' === 'PAID',
-                                        'bg-rose-50 text-rose-700 border-rose-200 animate-pulse': {{ $rel['isOverdue'] && $inv->balance_due > 0 ? 'true' : 'false' }},
+                                        'bg-rose-50 text-rose-700 border-rose-200 animate-pulse': {{ $rel['isOverdue'] && $inv->adjusted_balance_due > 0 ? 'true' : 'false' }},
                                         'bg-amber-50 text-amber-800 border-amber-200': '{{ $inv->status }}' === 'PART_PAID',
-                                        'bg-[#F5F6F8] text-neutral-700 border-neutral-200/80': '{{ $inv->status }}' !== 'PAID' && '{{ $inv->status }}' !== 'PART_PAID' && !{{ $rel['isOverdue'] && $inv->balance_due > 0 ? 'true' : 'false' }}
+                                        'bg-[#F5F6F8] text-neutral-700 border-neutral-200/80': '{{ $inv->status }}' !== 'PAID' && '{{ $inv->status }}' !== 'PART_PAID' && !{{ $rel['isOverdue'] && $inv->adjusted_balance_due > 0 ? 'true' : 'false' }}
                                     }"
                                 >
-                                    @if($inv->status === 'PAID') ✓ Settled
-                                    @elseif($rel['isOverdue'] && $inv->balance_due > 0) 🚨 Overdue
-                                    @elseif($inv->status === 'PART_PAID') ⚡ Part Paid
+                                    @if($inv->status === 'PAID' || $inv->is_settled) ✓ Settled
+                                    @elseif($rel['isOverdue'] && $inv->adjusted_balance_due > 0) 🚨 Overdue
+                                    @elseif($inv->status === 'PART_PAID' || $inv->amount_received > 0) ⚡ Part Paid
                                     @else ⏳ Awaiting
                                     @endif
                                 </span>
@@ -559,10 +592,10 @@
                                     >
                                         📄
                                     </a>
-                                    @if($inv->balance_due > 0)
+                                    @if($inv->adjusted_balance_due > 0)
                                         <button
                                             type="button"
-                                            @click="openReceiptModal({{ $inv->id }}, {{ $inv->balance_due }})"
+                                            @click="openReceiptModal({{ $inv->id }}, {{ $inv->adjusted_balance_due }})"
                                             class="px-2.5 py-1 rounded-full bg-[#D7FF53] text-[#091315] hover:bg-[#c8f043] border border-[#c8f043] text-[10px] font-extrabold shadow-2xs transition-transform active:scale-95 cursor-pointer flex items-center gap-1"
                                             title="Payment Receipt"
                                         >
@@ -1187,7 +1220,7 @@
                     <button @click="isNewReceiptOpen = false" class="text-neutral-400 hover:text-white cursor-pointer transition-colors">✕</button>
                 </div>
 
-                @if($invoices->where('balance_due', '>', 0)->isEmpty())
+                @if($invoices->filter(fn($i) => $i->adjusted_balance_due > 0)->isEmpty())
                     <div class="p-8 text-center space-y-3 text-xs">
                         <div class="w-12 h-12 rounded-full bg-neutral-100 text-neutral-800 flex items-center justify-center text-xl mx-auto font-black">
                             ✓
@@ -1200,13 +1233,53 @@
                         @csrf
                         <div>
                             <label class="block font-bold text-neutral-700 mb-1">Select Invoice to Settle *</label>
-                            <select name="invoice_id" x-model="selectedInvoiceId" @change="onInvoiceChange()" class="w-full px-3 py-2 border border-neutral-200 bg-white rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden" required>
-                                @foreach($invoices->where('balance_due', '>', 0) as $inv)
-                                    <option value="{{ $inv->id }}" data-balance="{{ $inv->balance_due }}">
-                                        {{ $inv->invoice_number }} · {{ $inv->customer->company_name }} (Balance Due: {{ formatINR($inv->balance_due) }})
+                            <select name="invoice_id" x-model="selectedInvoiceId" @change="onInvoiceChange()" class="w-full px-3 py-2 border border-neutral-200 bg-white rounded-xl focus:ring-2 focus:ring-[#091315] focus:outline-hidden font-mono text-xs" required>
+                                @foreach($invoices->filter(fn($i) => $i->adjusted_balance_due > 0) as $inv)
+                                    <option
+                                        value="{{ $inv->id }}"
+                                        data-balance="{{ $inv->adjusted_balance_due }}"
+                                        data-original="{{ $inv->total_amount }}"
+                                        data-debit="{{ $inv->total_debited_amount }}"
+                                        data-credit="{{ $inv->total_credited_amount }}"
+                                        data-adjusted="{{ $inv->adjusted_total_amount }}"
+                                        data-received="{{ $inv->amount_received }}"
+                                    >
+                                        {{ $inv->invoice_number }} · {{ $inv->customer->company_name }} (Receivable: {{ formatINR($inv->adjusted_balance_due) }})
                                     </option>
                                 @endforeach
                             </select>
+                        </div>
+
+                        <!-- Financial Breakdown Card -->
+                        <div class="p-3 bg-[#F5F6F8] rounded-2xl border border-neutral-200/80 space-y-1.5 font-mono text-[11px]" x-show="selectedInvoiceBreakdown">
+                            <div class="flex items-center justify-between text-neutral-600 font-bold">
+                                <span>Original Invoice</span>
+                                <span class="font-extrabold text-neutral-900" x-text="formatINR(selectedInvoiceBreakdown.original)"></span>
+                            </div>
+                            <template x-if="selectedInvoiceBreakdown.debit > 0">
+                                <div class="flex items-center justify-between text-amber-800 font-bold">
+                                    <span>+ Debit Notes</span>
+                                    <span class="font-extrabold" x-text="'+' + formatINR(selectedInvoiceBreakdown.debit)"></span>
+                                </div>
+                            </template>
+                            <template x-if="selectedInvoiceBreakdown.credit > 0">
+                                <div class="flex items-center justify-between text-rose-700 font-bold">
+                                    <span>- Credit Notes</span>
+                                    <span class="font-extrabold" x-text="'-' + formatINR(selectedInvoiceBreakdown.credit)"></span>
+                                </div>
+                            </template>
+                            <div class="flex items-center justify-between text-neutral-800 font-extrabold pt-1 border-t border-neutral-200">
+                                <span>Adjusted Total</span>
+                                <span x-text="formatINR(selectedInvoiceBreakdown.adjusted)"></span>
+                            </div>
+                            <div class="flex items-center justify-between text-emerald-700 font-bold">
+                                <span>- Payments Received</span>
+                                <span class="font-extrabold" x-text="'-' + formatINR(selectedInvoiceBreakdown.received)"></span>
+                            </div>
+                            <div class="flex items-center justify-between text-[#091315] font-black text-xs pt-1 border-t border-neutral-300">
+                                <span class="uppercase tracking-wider">Remaining Receivable</span>
+                                <span class="text-rose-600 font-black text-xs" x-text="formatINR(selectedInvoiceBreakdown.due)"></span>
+                            </div>
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1307,9 +1380,10 @@
             },
 
             matchesFilter(status, isOverdue, searchHaystack) {
-                if (this.filterStatus === 'UNPAID' && status === 'PAID') return false;
-                if (this.filterStatus === 'OVERDUE' && (!isOverdue || status === 'PAID')) return false;
-                if (this.filterStatus === 'PAID' && status !== 'PAID') return false;
+                const isSettled = (status === 'PAID' || status === 'SETTLED');
+                if (this.filterStatus === 'UNPAID' && isSettled) return false;
+                if (this.filterStatus === 'OVERDUE' && (!isOverdue || isSettled)) return false;
+                if (this.filterStatus === 'PAID' && !isSettled) return false;
 
                 if (this.searchQuery && this.searchQuery.trim() !== '') {
                     const q = this.searchQuery.toLowerCase().trim();
@@ -1762,26 +1836,45 @@
     }
 
     function receiptModalForm() {
-        const firstUnpaid = {{ $invoices->where('balance_due', '>', 0)->first()?->balance_due ?? 0 }};
+        const firstUnpaid = {{ $invoices->filter(fn($i) => $i->adjusted_balance_due > 0)->first()?->adjusted_balance_due ?? 0 }};
         return {
-            selectedInvoiceId: '{{ $invoices->where('balance_due', '>', 0)->first()?->id ?? "" }}',
+            selectedInvoiceId: '{{ $invoices->filter(fn($i) => $i->adjusted_balance_due > 0)->first()?->id ?? "" }}',
             currentBalance: firstUnpaid,
             receiptAmount: '',
+            selectedInvoiceBreakdown: null,
             init() {
+                this.updateBreakdown();
                 window.addEventListener('set-receipt-invoice', (e) => {
                     if (e.detail && e.detail.invoiceId) {
                         this.selectedInvoiceId = String(e.detail.invoiceId);
                         this.currentBalance = parseFloat(e.detail.balance || 0);
                         this.receiptAmount = '';
+                        this.$nextTick(() => {
+                            this.updateBreakdown();
+                        });
                     }
                 });
             },
             onInvoiceChange() {
+                this.updateBreakdown();
+            },
+            updateBreakdown() {
                 const selectElem = document.querySelector('select[name="invoice_id"]');
                 const opt = selectElem ? selectElem.selectedOptions[0] : null;
                 if (opt) {
                     this.currentBalance = parseFloat(opt.getAttribute('data-balance') || 0);
+                    this.selectedInvoiceBreakdown = {
+                        original: parseFloat(opt.getAttribute('data-original') || 0),
+                        debit: parseFloat(opt.getAttribute('data-debit') || 0),
+                        credit: parseFloat(opt.getAttribute('data-credit') || 0),
+                        adjusted: parseFloat(opt.getAttribute('data-adjusted') || 0),
+                        received: parseFloat(opt.getAttribute('data-received') || 0),
+                        due: parseFloat(opt.getAttribute('data-balance') || 0),
+                    };
                 }
+            },
+            formatINR(val) {
+                return '₹' + Number(val || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
         }
     }

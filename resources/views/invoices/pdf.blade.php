@@ -276,21 +276,43 @@
                 </td>
             </tr>
 
-            @if((float)$invoice->amount_received > 0)
-                <tr class="total-row" style="background-color: #f0fdf4;">
-                    <td colspan="5" class="text-right font-bold" style="color: #166534; font-size: 10px;">
-                        Less Advance Received / Paid:
-                    </td>
-                    <td class="text-right font-bold" style="color: #166534; font-size: 11px;">
-                        -₹{{ number_format((float)$invoice->amount_received, 2) }}
-                    </td>
-                </tr>
+            @if((float)$invoice->amount_received > 0 || (float)$invoice->credit_notes_total > 0 || (float)$invoice->debit_notes_total > 0)
+                @if((float)$invoice->debit_notes_total > 0)
+                    <tr class="total-row" style="background-color: #fefce8;">
+                        <td colspan="5" class="text-right font-bold" style="color: #854d0e; font-size: 10px;">
+                            Add Debit Notes (Supplementary / Charges):
+                        </td>
+                        <td class="text-right font-bold" style="color: #854d0e; font-size: 11px;">
+                            +₹{{ number_format((float)$invoice->debit_notes_total, 2) }}
+                        </td>
+                    </tr>
+                @endif
+                @if((float)$invoice->credit_notes_total > 0)
+                    <tr class="total-row" style="background-color: #fef2f2;">
+                        <td colspan="5" class="text-right font-bold" style="color: #991b1b; font-size: 10px;">
+                            Less Credit Notes (Discounts / Revisions):
+                        </td>
+                        <td class="text-right font-bold" style="color: #991b1b; font-size: 11px;">
+                            -₹{{ number_format((float)$invoice->credit_notes_total, 2) }}
+                        </td>
+                    </tr>
+                @endif
+                @if((float)$invoice->amount_received > 0)
+                    <tr class="total-row" style="background-color: #f0fdf4;">
+                        <td colspan="5" class="text-right font-bold" style="color: #166534; font-size: 10px;">
+                            Less Advance Received / Paid:
+                        </td>
+                        <td class="text-right font-bold" style="color: #166534; font-size: 11px;">
+                            -₹{{ number_format((float)$invoice->amount_received, 2) }}
+                        </td>
+                    </tr>
+                @endif
                 <tr class="total-row" style="background-color: #1e293b; color: #ffffff;">
                     <td colspan="5" class="font-bold text-right" style="color: #ffffff; font-size: 11px;">
                         NET BALANCE PAYABLE (INR):
                     </td>
                     <td class="text-right font-bold" style="color: #D7FF53; font-size: 13px;">
-                        ₹{{ number_format((float)$invoice->balance_due, 2) }}
+                        ₹{{ number_format((float)$invoice->adjusted_balance_due, 2) }}
                     </td>
                 </tr>
             @endif

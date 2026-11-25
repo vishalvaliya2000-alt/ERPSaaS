@@ -2,27 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Customer;
-use App\Models\Product;
-use App\Models\SalesOrder;
-use App\Models\SalesOrderItem;
+use App\Models\BusinessDocument;
 use App\Models\CommercialShipment;
 use App\Models\CommercialShipmentItem;
-use App\Models\Invoice;
-use App\Models\PaymentReceipt;
+use App\Models\Customer;
 use App\Models\FollowupTask;
+use App\Models\Invoice;
 use App\Models\Lead;
+use App\Models\PaymentReceipt;
+use App\Models\Product;
+use App\Models\PurchaseOrder;
+use App\Models\SalesOrder;
+use App\Models\SalesOrderItem;
 use App\Models\Sample;
-use App\Models\AiInsight;
-use App\Models\ActivityLog;
-use App\Models\User;
-use App\Models\BusinessDocument;
-use App\Services\TenantManager;
 use App\Services\DashboardAnalyticsService;
+use App\Services\TenantManager;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -32,24 +31,30 @@ class DashboardController extends Controller
         $user = auth()->user();
         $userName = $user?->first_name ?: ($user?->name ?: 'Vishal');
 
-        // 1. FINANCIAL EXECUTIVE PULSE (Consolidated into 1 aggregate query)
-        $invoiceStats = DB::table('invoices')
-            ->where('tenant_id', $tenantId)
-            ->selectRaw("
-                COALESCE(SUM(total_amount), 0) as total_sales,
-                COALESCE(SUM(balance_due), 0) as outstanding_receivables,
-                COUNT(CASE WHEN status = 'PAID' THEN 1 END) as paid_count,
-                COUNT(CASE WHEN status IN ('PENDING', 'ISSUED', 'PART_PAID', 'OVERDUE') AND balance_due > 0 THEN 1 END) as pending_count
-            ")
-            ->first();
+        // 1. FINANCIAL EXECUTIVE PULSE
+        $tenantInvoices = Invoice::where('tenant_id', $tenantId)
+            ->with(['creditNotes', 'debitNotes'])
+            ->get();
 
-        $totalSales = (float) ($invoiceStats->total_sales ?? 0);
-        $outstandingReceivables = (float) ($invoiceStats->outstanding_receivables ?? 0);
-        $paidInvoicesCount = (int) ($invoiceStats->paid_count ?? 0);
-        $pendingInvoicesCount = (int) ($invoiceStats->pending_count ?? 0);
+        $totalSales = 0.00;
+        $outstandingReceivables = 0.00;
+        $paidInvoicesCount = 0;
+        $pendingInvoicesCount = 0;
+
+        foreach ($tenantInvoices as $inv) {
+            $totalSales += (float) $inv->total_amount;
+            $adjBal = $inv->adjusted_balance_due;
+            $outstandingReceivables += $adjBal;
+            if ($adjBal <= 0.00 && ((float) $inv->amount_received > 0 || (float) $inv->total_credited_amount > 0 || $inv->status === 'PAID')) {
+                $paidInvoicesCount++;
+            } elseif ($adjBal > 0.00) {
+                $pendingInvoicesCount++;
+            }
+        }
+        $outstandingReceivables = round($outstandingReceivables, 2);
 
         $totalCollected = (float) PaymentReceipt::where('tenant_id', $tenantId)->where('payment_mode', '!=', 'ADVANCE_OFFSET')->sum('amount_received');
-        $totalExpenses = (float) \App\Models\PurchaseOrder::where('tenant_id', $tenantId)->sum('total_amount');
+        $totalExpenses = (float) PurchaseOrder::where('tenant_id', $tenantId)->sum('total_amount');
         $collectionRate = $totalSales > 0 ? round(($totalCollected / $totalSales) * 100, 1) : 0;
 
         // 2. FACTORY & FULFILLMENT VELOCITY (Consolidated into 1 aggregate query)
@@ -112,8 +117,10 @@ class DashboardController extends Controller
         foreach ($futureTasks as $ft) {
             if ($ft->related_entity_type && $ft->related_entity_id) {
                 $eType = strtolower($ft->related_entity_type);
-                $futureTaskEntityKeys[$eType . '-' . $ft->related_entity_id] = true;
-                if ($eType === 'invoice') $futureTaskEntityKeys['inv-' . $ft->related_entity_id] = true;
+                $futureTaskEntityKeys[$eType.'-'.$ft->related_entity_id] = true;
+                if ($eType === 'invoice') {
+                    $futureTaskEntityKeys['inv-'.$ft->related_entity_id] = true;
+                }
             }
         }
 
@@ -125,10 +132,12 @@ class DashboardController extends Controller
         foreach ($completedTodayTasks as $ct) {
             if ($ct->related_entity_type && $ct->related_entity_id) {
                 $eType = strtolower($ct->related_entity_type);
-                $completedTodayEntityKeys[$eType . '-' . $ct->related_entity_id] = true;
-                if ($eType === 'invoice') $completedTodayEntityKeys['inv-' . $ct->related_entity_id] = true;
+                $completedTodayEntityKeys[$eType.'-'.$ct->related_entity_id] = true;
+                if ($eType === 'invoice') {
+                    $completedTodayEntityKeys['inv-'.$ct->related_entity_id] = true;
+                }
             }
-            $completedTodayEntityKeys['task-' . $ct->id] = true;
+            $completedTodayEntityKeys['task-'.$ct->id] = true;
         }
 
         // 6. HIGH-IMPACT DECISION QUEUE (Unified & Strictly Deduplicated)
@@ -145,19 +154,21 @@ class DashboardController extends Controller
 
         foreach ($activeTasks as $t) {
             // Check if this task is for an on-demand order that should be skipped (e.g. PO-132)
-            $reasonLower = strtolower($t->reason . ' ' . $t->pending_item);
+            $reasonLower = strtolower($t->reason.' '.$t->pending_item);
             if (str_contains($reasonLower, 'po-132') || str_contains($reasonLower, 'on-demand') || str_contains($reasonLower, 'on demand')) {
                 // Delete stale task from database
                 $t->delete();
+
                 continue;
             }
 
             // Auto-resolve tasks if the underlying invoice is already paid
             if ($t->type === 'PAYMENT_FOLLOWUP') {
-                if (preg_match('/(INV-[0-9]+|BOS[0-9]+)/i', $t->reason . ' ' . $t->pending_item, $invMatch)) {
+                if (preg_match('/(INV-[0-9]+|BOS[0-9]+)/i', $t->reason.' '.$t->pending_item, $invMatch)) {
                     $inv = Invoice::where('tenant_id', $tenantId)->where('invoice_number', $invMatch[0])->first();
                     if ($inv && ($inv->balance_due <= 0 || $inv->status === 'PAID')) {
                         $t->update(['status' => 'COMPLETED', 'completed_at' => Carbon::now()]);
+
                         continue;
                     }
                 }
@@ -165,13 +176,14 @@ class DashboardController extends Controller
 
             // Auto-resolve if sales order is already completed
             if ($t->type === 'SALES_FOLLOWUP') {
-                if (preg_match('/(PO[- ][0-9a-z\/]+)/i', $t->reason . ' ' . $t->pending_item, $poMatch)) {
+                if (preg_match('/(PO[- ][0-9a-z\/]+)/i', $t->reason.' '.$t->pending_item, $poMatch)) {
                     $cleanPo = trim($poMatch[0]);
-                    $so = SalesOrder::where('tenant_id', $tenantId)->where(function($q) use ($cleanPo) {
+                    $so = SalesOrder::where('tenant_id', $tenantId)->where(function ($q) use ($cleanPo) {
                         $q->where('order_number', $cleanPo)->orWhere('po_number', $cleanPo);
                     })->first();
                     if ($so && ($so->status === 'COMPLETED' || $so->isFullyDelivered())) {
                         $t->update(['status' => 'COMPLETED', 'completed_at' => Carbon::now()]);
+
                         continue;
                     }
                 }
@@ -179,10 +191,11 @@ class DashboardController extends Controller
 
             // Auto-resolve if shipment is already delivered
             if ($t->type === 'DELIVERY_CONFIRMATION') {
-                if (preg_match('/LR\s*([0-9]+)/i', $t->reason . ' ' . $t->pending_item, $lrMatch)) {
+                if (preg_match('/LR\s*([0-9]+)/i', $t->reason.' '.$t->pending_item, $lrMatch)) {
                     $shp = CommercialShipment::where('tenant_id', $tenantId)->where('lr_number', $lrMatch[1])->first();
                     if ($shp && $shp->status === 'DELIVERED') {
                         $t->update(['status' => 'COMPLETED', 'completed_at' => Carbon::now()]);
+
                         continue;
                     }
                 }
@@ -192,16 +205,20 @@ class DashboardController extends Controller
             $entityId = $t->related_entity_id ?: $t->id;
             $key = "{$entityType}-{$entityId}";
 
-            if (isset($seenEntityKeys[$key])) continue;
+            if (isset($seenEntityKeys[$key])) {
+                continue;
+            }
             $seenEntityKeys[$key] = true;
-            if ($entityType === 'invoice') $seenEntityKeys['inv-' . $entityId] = true;
+            if ($entityType === 'invoice') {
+                $seenEntityKeys['inv-'.$entityId] = true;
+            }
 
             $rel = formatRelativeDate($t->due_date);
             $compName = $t->customer?->company_name ?? $t->lead?->company_name ?? 'Priority Follow-up';
             $contact = $t->customer?->primary_contact_person ?? $t->lead?->contact_person ?? 'Sir';
             $phone = $t->customer?->primary_phone ?? $t->lead?->phone ?? '';
 
-            $badgeColor = match($t->priority) {
+            $badgeColor = match ($t->priority) {
                 'URGENT' => 'rose',
                 'HIGH' => 'amber',
                 'MEDIUM' => 'blue',
@@ -241,7 +258,7 @@ class DashboardController extends Controller
                 $contactName = $cust?->primary_contact_person ?: ($cust?->company_name ?: 'there');
 
                 return [
-                    'id' => 'shipment-' . $shp->id,
+                    'id' => 'shipment-'.$shp->id,
                     'shipment_id' => $shp->id,
                     'title' => "LR {$shp->lr_number} · {$shp->customer_names}",
                     'transporter' => $shp->transporter ?: 'Direct Dispatch',
@@ -249,7 +266,7 @@ class DashboardController extends Controller
                     'destination' => $shp->destination ?: ($cust?->city ?? 'Destination Godown'),
                     'tracking_url' => $shp->tracking_url,
                     'status' => $shp->status ?: 'IN_TRANSIT',
-                    'qty_text' => number_format($qty) . " KG ({$prodName})",
+                    'qty_text' => number_format($qty)." KG ({$prodName})",
                     'po_numbers' => $shp->po_numbers,
                     'date' => $shp->shipment_date->format('d M Y'),
                     'contact_person' => $contactName,
@@ -277,13 +294,13 @@ class DashboardController extends Controller
 
         $summaryParts = [];
         if ($outstandingReceivables > 0) {
-            $summaryParts[] = "You have " . formatINR($outstandingReceivables) . " in outstanding receivables (" . $collectionRate . "% collected to date)";
+            $summaryParts[] = 'You have '.formatINR($outstandingReceivables).' in outstanding receivables ('.$collectionRate.'% collected to date)';
         } elseif ($totalSales > 0) {
-            $summaryParts[] = "All issued invoices are 100% collected (" . formatINR($totalCollected) . ")";
+            $summaryParts[] = 'All issued invoices are 100% collected ('.formatINR($totalCollected).')';
         }
 
         if ($pendingShipmentQty > 0) {
-            $summaryParts[] = number_format($pendingShipmentQty) . " KG pending dispatch across {$openOrderLines} open sales order line(s)";
+            $summaryParts[] = number_format($pendingShipmentQty)." KG pending dispatch across {$openOrderLines} open sales order line(s)";
         }
 
         $activeShipmentsCount = $activeShipments->count();
@@ -292,9 +309,9 @@ class DashboardController extends Controller
         }
 
         if (empty($summaryParts)) {
-            $summary = "Welcome to your ERP Command Center. Your workspace is active with 0 pending bottlenecks. Add your first customer or sales order to begin tracking operations.";
+            $summary = 'Welcome to your ERP Command Center. Your workspace is active with 0 pending bottlenecks. Add your first customer or sales order to begin tracking operations.';
         } else {
-            $summary = implode(' and ', $summaryParts) . '.';
+            $summary = implode(' and ', $summaryParts).'.';
         }
 
         $aiBriefing = [
@@ -314,7 +331,7 @@ class DashboardController extends Controller
             ->where('document_type', 'PO')
             ->where(function ($q) use ($thisMonthStart, $thisMonthEnd) {
                 $q->whereBetween('document_date', [$thisMonthStart, $thisMonthEnd])
-                  ->orWhereBetween('created_at', [$thisMonthStart, $thisMonthEnd]);
+                    ->orWhereBetween('created_at', [$thisMonthStart, $thisMonthEnd]);
             });
         $posThisMonthCount = (clone $posThisMonthQuery)->count();
         $posThisMonthValue = (float) (clone $posThisMonthQuery)->sum('total_amount');
@@ -329,7 +346,7 @@ class DashboardController extends Controller
         $invoicesThisMonthQuery = Invoice::where('tenant_id', $tenantId)
             ->where(function ($q) use ($thisMonthStart, $thisMonthEnd) {
                 $q->whereBetween('invoice_date', [$thisMonthStart, $thisMonthEnd])
-                  ->orWhereBetween('created_at', [$thisMonthStart, $thisMonthEnd]);
+                    ->orWhereBetween('created_at', [$thisMonthStart, $thisMonthEnd]);
             });
         $invoicesThisMonthCount = (clone $invoicesThisMonthQuery)->count();
         $invoicesThisMonthValue = (float) (clone $invoicesThisMonthQuery)->sum('total_amount');
@@ -353,29 +370,37 @@ class DashboardController extends Controller
         $deliveredPendingPaymentCount = CommercialShipment::where('tenant_id', $tenantId)
             ->where('status', 'DELIVERED')
             ->whereHas('invoices', function ($q) {
-                $q->where('balance_due', '>', 0);
+                $q->where(function ($sq) {
+                    $sq->where('balance_due', '>', 0)
+                        ->orWhere('status', '!=', 'PAID');
+                });
+            })
+            ->with('invoices.creditDebitNotes')
+            ->get()
+            ->filter(function ($shp) {
+                return $shp->invoices->contains(fn ($inv) => ! $inv->is_settled && $inv->adjusted_balance_due > 0);
             })
             ->count();
 
         // Overdue & Pending Payment invoices
         $overdueInvoices = Invoice::where('tenant_id', $tenantId)
-            ->where('balance_due', '>', 0)
             ->where(function ($q) use ($today) {
                 $q->where('status', 'OVERDUE')
-                  ->orWhere('due_date', '<', $today);
+                    ->orWhere('due_date', '<', $today);
             })
-            ->with(['customer', 'salesOrder'])
+            ->with(['customer', 'salesOrder', 'creditDebitNotes'])
             ->orderBy('due_date', 'asc')
-            ->get();
+            ->get()
+            ->filter(fn ($i) => ! $i->is_settled && $i->adjusted_balance_due > 0);
         $overdueInvoicesCount = $overdueInvoices->count();
 
         // Invoices due within 7 days
         $dueSoonInvoices = Invoice::where('tenant_id', $tenantId)
-            ->where('balance_due', '>', 0)
             ->whereBetween('due_date', [$today, $today->copy()->addDays(7)])
-            ->with(['customer', 'salesOrder'])
+            ->with(['customer', 'salesOrder', 'creditDebitNotes'])
             ->orderBy('due_date', 'asc')
-            ->get();
+            ->get()
+            ->filter(fn ($i) => ! $i->is_settled && $i->adjusted_balance_due > 0);
 
         // Open POs with no dispatches/shipments
         $unshippedOrders = SalesOrder::where('tenant_id', $tenantId)
@@ -410,18 +435,18 @@ class DashboardController extends Controller
 
         // 1. Overdue Invoices (High Severity - Red)
         foreach ($overdueInvoices->take(4) as $inv) {
-            $daysOverdue = $inv->due_date ? max(1, (int)$inv->due_date->diffInDays($today)) : 0;
+            $daysOverdue = $inv->due_date ? max(1, (int) $inv->due_date->diffInDays($today)) : 0;
             $documentsAttention->push([
                 'type' => 'INVOICE',
                 'severity' => 'red',
                 'badge' => "{$daysOverdue}d Overdue",
                 'title' => "Invoice #{$inv->invoice_number}",
                 'subtitle' => $inv->customer?->company_name ?: 'Unknown Customer',
-                'amount' => $inv->balance_due,
-                'description' => "Balance ₹" . number_format($inv->balance_due) . " pending since " . ($inv->due_date ? $inv->due_date->format('d M Y') : 'N/A'),
+                'amount' => $inv->adjusted_balance_due,
+                'description' => 'Balance ₹'.number_format($inv->adjusted_balance_due).' pending since '.($inv->due_date ? $inv->due_date->format('d M Y') : 'N/A'),
                 'action_label' => 'Collect / View',
-                'action_url' => route('invoices.index') . "?search=" . urlencode($inv->invoice_number),
-                'doc_url' => route('invoices.index') . "?search=" . urlencode($inv->invoice_number),
+                'action_url' => route('invoices.index').'?search='.urlencode($inv->invoice_number),
+                'doc_url' => route('invoices.index').'?search='.urlencode($inv->invoice_number),
             ]);
         }
 
@@ -431,19 +456,19 @@ class DashboardController extends Controller
                 'type' => 'SHIPMENT_UNINVOICED',
                 'severity' => 'amber',
                 'badge' => 'Uninvoiced Dispatch',
-                'title' => "Shipment #{$shp->shipment_number}" . ($shp->lr_number ? " (LR: {$shp->lr_number})" : ''),
+                'title' => "Shipment #{$shp->shipment_number}".($shp->lr_number ? " (LR: {$shp->lr_number})" : ''),
                 'subtitle' => $shp->salesOrder?->customer?->company_name ?: ($shp->transporter ?: 'Direct Dispatch'),
                 'amount' => null,
-                'description' => "Dispatched on " . ($shp->shipment_date ? $shp->shipment_date->format('d M Y') : 'N/A') . " — Tax Invoice not generated yet",
+                'description' => 'Dispatched on '.($shp->shipment_date ? $shp->shipment_date->format('d M Y') : 'N/A').' — Tax Invoice not generated yet',
                 'action_label' => 'Generate Invoice',
                 'action_url' => route('invoices.index'),
-                'doc_url' => route('shipments.index') . "?search=" . urlencode($shp->shipment_number),
+                'doc_url' => route('shipments.index').'?search='.urlencode($shp->shipment_number),
             ]);
         }
 
         // 3. Open POs with no shipments (Information - Blue)
         foreach ($unshippedOrders->take(3) as $ord) {
-            $daysSinceOrder = $ord->created_at ? (int)$ord->created_at->diffInDays($today) : 0;
+            $daysSinceOrder = $ord->created_at ? (int) $ord->created_at->diffInDays($today) : 0;
             $documentsAttention->push([
                 'type' => 'PO_UNSHIPPED',
                 'severity' => 'blue',
@@ -451,27 +476,27 @@ class DashboardController extends Controller
                 'title' => "PO #{$ord->order_number}",
                 'subtitle' => $ord->customer?->company_name ?: 'Direct Customer',
                 'amount' => $ord->total_amount,
-                'description' => "₹" . number_format($ord->total_amount) . " confirmed {$daysSinceOrder}d ago — awaiting factory consignment/LR",
+                'description' => '₹'.number_format($ord->total_amount)." confirmed {$daysSinceOrder}d ago — awaiting factory consignment/LR",
                 'action_label' => 'Create Dispatch',
                 'action_url' => route('shipments.index'),
-                'doc_url' => route('orders.index') . "?search=" . urlencode($ord->order_number),
+                'doc_url' => route('orders.index').'?search='.urlencode($ord->order_number),
             ]);
         }
 
         // 4. Invoices Due Within 7 Days (Yellow)
         foreach ($dueSoonInvoices->take(3) as $inv) {
-            $daysLeft = $inv->due_date ? max(0, (int)$today->diffInDays($inv->due_date)) : 0;
+            $daysLeft = $inv->due_date ? max(0, (int) $today->diffInDays($inv->due_date)) : 0;
             $documentsAttention->push([
                 'type' => 'INVOICE_DUE_SOON',
                 'severity' => 'yellow',
                 'badge' => "Due in {$daysLeft}d",
                 'title' => "Invoice #{$inv->invoice_number}",
                 'subtitle' => $inv->customer?->company_name ?: 'Customer',
-                'amount' => $inv->balance_due,
-                'description' => "₹" . number_format($inv->balance_due) . " due on " . ($inv->due_date ? $inv->due_date->format('d M Y') : 'N/A'),
+                'amount' => $inv->adjusted_balance_due,
+                'description' => '₹'.number_format($inv->adjusted_balance_due).' due on '.($inv->due_date ? $inv->due_date->format('d M Y') : 'N/A'),
                 'action_label' => 'Send Reminder',
-                'action_url' => route('invoices.index') . "?search=" . urlencode($inv->invoice_number),
-                'doc_url' => route('invoices.index') . "?search=" . urlencode($inv->invoice_number),
+                'action_url' => route('invoices.index').'?search='.urlencode($inv->invoice_number),
+                'doc_url' => route('invoices.index').'?search='.urlencode($inv->invoice_number),
             ]);
         }
 
@@ -534,9 +559,9 @@ class DashboardController extends Controller
     public function generateActions(Request $request)
     {
         $tenantId = TenantManager::getTenantId();
-        
+
         // Run the Artisan Command for this specific tenant
-        \Illuminate\Support\Facades\Artisan::call('erp:generate-daily-actions', [
+        Artisan::call('erp:generate-daily-actions', [
             '--tenant' => $tenantId,
         ]);
 
@@ -623,32 +648,32 @@ class DashboardController extends Controller
         }
 
         // 4. Tomorrow's Radar
-        $tomorrowInvoices = Invoice::with('customer')
+        $tomorrowInvoices = Invoice::with(['customer', 'creditDebitNotes'])
             ->where('tenant_id', $tenantId)
             ->whereDate('due_date', $tomorrow)
-            ->where('balance_due', '>', 0)
-            ->get();
+            ->get()
+            ->filter(fn ($i) => ! $i->is_settled && $i->adjusted_balance_due > 0);
 
-        $totalDueTomorrow = (float) $tomorrowInvoices->sum('balance_due');
+        $totalDueTomorrow = (float) $tomorrowInvoices->sum(fn ($i) => $i->adjusted_balance_due);
         $tomorrowItems = [];
         foreach ($tomorrowInvoices as $inv) {
             $tomorrowItems[] = [
                 'invoice_number' => $inv->invoice_number,
                 'customer' => $inv->customer?->company_name ?? 'Customer',
-                'balance_due' => (float) $inv->balance_due,
+                'balance_due' => (float) $inv->adjusted_balance_due,
             ];
         }
 
         // Formatted WhatsApp message
         $waText = "🌙 *EVENING EXECUTIVE DIGEST* — {$tenant->name}\n";
-        $waText .= "📅 " . $today->format('l, d F Y') . " (7:00 PM Daily Briefing)\n";
+        $waText .= '📅 '.$today->format('l, d F Y')." (7:00 PM Daily Briefing)\n";
         $waText .= "━━━━━━━━━━━━━━━━━━━━\n\n";
 
         $waText .= "🚚 *TODAY'S FACTORY DISPATCHES*\n";
-        if (!empty($shipmentItems)) {
-            $waText .= "• Total Loaded: " . number_format($totalDispatchedKg) . " KG (" . count($shipmentItems) . " consignments)\n";
+        if (! empty($shipmentItems)) {
+            $waText .= '• Total Loaded: '.number_format($totalDispatchedKg).' KG ('.count($shipmentItems)." consignments)\n";
             foreach ($shipmentItems as $si) {
-                $waText .= "  - LR {$si['lr']} ({$si['transporter']}): " . number_format($si['qty']) . " KG {$si['product']} to {$si['destination']} ({$si['customer']})\n";
+                $waText .= "  - LR {$si['lr']} ({$si['transporter']}): ".number_format($si['qty'])." KG {$si['product']} to {$si['destination']} ({$si['customer']})\n";
             }
         } else {
             $waText .= "• Zero dispatches loaded today.\n";
@@ -656,10 +681,10 @@ class DashboardController extends Controller
         $waText .= "\n";
 
         $waText .= "💰 *TODAY'S CASH COLLECTIONS (RTGS/BANK)*\n";
-        if (!empty($receiptItems)) {
-            $waText .= "• Total Received: " . formatINR($totalCollected) . " across " . count($receiptItems) . " receipt(s)\n";
+        if (! empty($receiptItems)) {
+            $waText .= '• Total Received: '.formatINR($totalCollected).' across '.count($receiptItems)." receipt(s)\n";
             foreach ($receiptItems as $ri) {
-                $waText .= "  - {$ri['customer']}: " . formatINR($ri['amount']) . " ({$ri['mode']})\n";
+                $waText .= "  - {$ri['customer']}: ".formatINR($ri['amount'])." ({$ri['mode']})\n";
             }
         } else {
             $waText .= "• No bank credits or payment receipts recorded today.\n";
@@ -667,10 +692,10 @@ class DashboardController extends Controller
         $waText .= "\n";
 
         $waText .= "📝 *NEW CONTRACTS BOOKED TODAY*\n";
-        if (!empty($orderItems)) {
-            $waText .= "• Total Booked: " . formatINR($totalOrderValue) . " (" . number_format($totalOrderKg) . " KG)\n";
+        if (! empty($orderItems)) {
+            $waText .= '• Total Booked: '.formatINR($totalOrderValue).' ('.number_format($totalOrderKg)." KG)\n";
             foreach ($orderItems as $oi) {
-                $waText .= "  - PO {$oi['po']} ({$oi['customer']}): " . formatINR($oi['amount']) . "\n";
+                $waText .= "  - PO {$oi['po']} ({$oi['customer']}): ".formatINR($oi['amount'])."\n";
             }
         } else {
             $waText .= "• No new sales contracts logged today.\n";
@@ -678,15 +703,15 @@ class DashboardController extends Controller
         $waText .= "\n";
 
         $waText .= "🚨 *TOMORROW'S RECEIVABLES RADAR*\n";
-        if (!empty($tomorrowItems)) {
-            $waText .= "• Total Due Tomorrow: " . formatINR($totalDueTomorrow) . " (" . count($tomorrowItems) . " invoice(s))\n";
+        if (! empty($tomorrowItems)) {
+            $waText .= '• Total Due Tomorrow: '.formatINR($totalDueTomorrow).' ('.count($tomorrowItems)." invoice(s))\n";
             foreach ($tomorrowItems as $ti) {
-                $waText .= "  - Inv {$ti['invoice_number']} ({$ti['customer']}): " . formatINR($ti['balance_due']) . "\n";
+                $waText .= "  - Inv {$ti['invoice_number']} ({$ti['customer']}): ".formatINR($ti['balance_due'])."\n";
             }
         } else {
             $waText .= "• 0 customer invoices due tomorrow.\n";
         }
-        $waText .= "━━━━━━━━━━━━━━━━━━━━";
+        $waText .= '━━━━━━━━━━━━━━━━━━━━';
 
         return response()->json([
             'tenant_name' => $tenant->name,

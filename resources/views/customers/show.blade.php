@@ -373,56 +373,80 @@
 
         <!-- Invoices & Receipts -->
         <div x-show="tab === 'invoices'" class="space-y-4">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs border-collapse">
-                    <thead>
-                        <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
-                            <th class="p-3 font-bold">Invoice No</th>
-                            <th class="p-3 font-bold">Date</th>
-                            <th class="p-3 font-bold">Due Date</th>
-                            <th class="p-3 font-bold text-right">Amount</th>
-                            <th class="p-3 font-bold text-right">Received</th>
-                            <th class="p-3 font-bold text-right">Balance Due</th>
-                            <th class="p-3 font-bold text-center">Status</th>
-                            <th class="p-3 font-bold text-center">Documents</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @foreach($customer->invoices as $inv)
-                            @php
-                                $suppDoc = $inv->documents->where('document_type', 'INVOICE')->first();
-                            @endphp
-                            <tr class="hover:bg-slate-50">
-                                <td class="p-3 font-mono font-bold text-slate-900">{{ $inv->invoice_number }}</td>
-                                <td class="p-3 text-slate-600">{{ $inv->invoice_date->format('d M Y') }}</td>
-                                <td class="p-3 text-slate-600">{{ $inv->due_date->format('d M Y') }}</td>
-                                <td class="p-3 text-right font-bold text-slate-900">{{ formatINR($inv->total_amount) }}</td>
-                                <td class="p-3 text-right font-bold text-emerald-600">{{ formatINR($inv->amount_received) }}</td>
-                                <td class="p-3 text-right font-black {{ $inv->balance_due > 0 ? 'text-rose-600' : 'text-slate-400' }}">
-                                    {{ formatINR($inv->balance_due) }}
-                                </td>
-                                <td class="p-3 text-center">
-                                    <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full {{ $inv->status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800' }}">
-                                        {{ $inv->status }}
+            @if($customer->invoices->isEmpty())
+                <div class="p-8 text-center bg-white rounded-3xl border border-neutral-200/60 shadow-2xs space-y-2">
+                    <div class="w-10 h-10 rounded-2xl bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto text-lg">📄</div>
+                    <p class="font-extrabold text-sm text-neutral-800">No Invoices Found</p>
+                    <p class="text-xs text-neutral-400">There are no commercial invoices generated for this account yet.</p>
+                </div>
+            @else
+                <div class="space-y-3">
+                    @foreach($customer->invoices as $inv)
+                        @php
+                            $suppDoc = $inv->documents->where('document_type', 'INVOICE')->first();
+                            $hasNotes = ($inv->total_debited_amount > 0 || $inv->total_credited_amount > 0);
+                        @endphp
+                        <div class="bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/80 p-4 shadow-2xs hover:border-neutral-300 transition-all space-y-3">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-neutral-100">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-mono font-black text-sm text-neutral-900">{{ $inv->invoice_number }}</span>
+                                    <span class="text-xs text-neutral-500 font-mono">· Date: {{ $inv->invoice_date->format('d M Y') }}</span>
+                                    <span class="text-xs text-neutral-500 font-mono">· Due: {{ $inv->due_date->format('d M Y') }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider font-mono {{ ($inv->status === 'PAID' || $inv->is_settled) ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : ($inv->due_date->isPast() && $inv->adjusted_balance_due > 0 ? 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse' : ($inv->amount_received > 0 ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-[#F5F6F8] text-neutral-700 border border-neutral-200/80')) }}">
+                                        @if($inv->status === 'PAID' || $inv->is_settled) ✓ Settled
+                                        @elseif($inv->due_date->isPast() && $inv->adjusted_balance_due > 0) 🚨 Overdue
+                                        @elseif($inv->status === 'PART_PAID' || $inv->amount_received > 0) ⚡ Part Paid
+                                        @else ⏳ Issued
+                                        @endif
                                     </span>
-                                </td>
-                                <td class="p-3 text-center whitespace-nowrap">
-                                    <div class="inline-flex items-center gap-1.5 justify-center">
-                                        <a href="{{ route('invoices.pdf', $inv->id) }}" target="_blank" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#091315] text-[#D7FF53] hover:bg-black transition-colors" title="Official Tax Invoice PDF">
+                                    <div class="inline-flex items-center gap-1.5">
+                                        <a href="{{ route('invoices.pdf', $inv->id) }}" target="_blank" class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#091315] text-[#D7FF53] hover:bg-black transition-colors" title="Official Tax Invoice PDF">
                                             📄 Tax Invoice
                                         </a>
                                         @if($suppDoc)
-                                            <a href="{{ route('documents.preview', $suppDoc->id) }}" target="_blank" class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors" title="View Supporting Document">
+                                            <a href="{{ route('documents.preview', $suppDoc->id) }}" target="_blank" class="px-2 py-1 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors" title="View Supporting Document">
                                                 📎 Doc
                                             </a>
                                         @endif
                                     </div>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+                                </div>
+                            </div>
+
+                            <!-- Financial Breakdown Grid -->
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs font-mono">
+                                <div class="p-2 bg-[#F5F6F8] rounded-2xl border border-neutral-200/60">
+                                    <span class="text-[9px] uppercase tracking-wider text-neutral-400 font-bold block">Original Billed</span>
+                                    <span class="font-black text-neutral-900 text-xs mt-0.5 block truncate">{{ formatINR($inv->total_amount) }}</span>
+                                </div>
+                                <div class="p-2 bg-[#F5F6F8] rounded-2xl border border-neutral-200/60">
+                                    <span class="text-[9px] uppercase tracking-wider text-neutral-400 font-bold block">Adjusted Total</span>
+                                    <span class="font-black text-neutral-900 text-xs mt-0.5 block truncate">{{ formatINR($inv->adjusted_total_amount) }}</span>
+                                    @if($hasNotes)
+                                        <span class="text-[8px] text-amber-800 font-extrabold block truncate">
+                                            @if($inv->total_debited_amount > 0)
+                                                +{{ formatINR($inv->total_debited_amount) }} DN
+                                            @endif
+                                            @if($inv->total_credited_amount > 0)
+                                                -{{ formatINR($inv->total_credited_amount) }} CN
+                                            @endif
+                                        </span>
+                                    @endif
+                                </div>
+                                <div class="p-2 bg-emerald-50/50 rounded-2xl border border-emerald-100">
+                                    <span class="text-[9px] uppercase tracking-wider text-emerald-700 font-bold block">Received</span>
+                                    <span class="font-black text-emerald-700 text-xs mt-0.5 block truncate">{{ formatINR($inv->amount_received) }}</span>
+                                </div>
+                                <div class="p-2 rounded-2xl border {{ $inv->adjusted_balance_due > 0 ? 'bg-rose-50/50 border-rose-100' : 'bg-[#F5F6F8] border-neutral-200/60' }}">
+                                    <span class="text-[9px] uppercase tracking-wider font-bold block {{ $inv->adjusted_balance_due > 0 ? 'text-rose-700' : 'text-neutral-400' }}">Remaining Due</span>
+                                    <span class="font-black text-xs mt-0.5 block truncate {{ $inv->adjusted_balance_due > 0 ? 'text-rose-700' : 'text-neutral-400' }}">{{ formatINR($inv->adjusted_balance_due) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </div>
 
         <!-- Quotations & Proformas -->

@@ -8,14 +8,14 @@ use App\Models\Invoice;
 use Illuminate\Support\Enumerable;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithTitle;
 
-class InvoicesExport implements FromCollection, WithHeadings, WithTitle, WithMapping
+class InvoicesExport implements FromCollection, WithHeadings, WithMapping, WithTitle
 {
     public function collection(): Enumerable
     {
-        return Invoice::with('customer')->get();
+        return Invoice::with(['customer', 'creditDebitNotes'])->get();
     }
 
     public function headings(): array
@@ -41,7 +41,7 @@ class InvoicesExport implements FromCollection, WithHeadings, WithTitle, WithMap
             $invoice->due_date ? $invoice->due_date->format('Y-m-d') : '',
             (float) $invoice->total_amount,
             (float) $invoice->amount_received,
-            (float) $invoice->balance_due,
+            (float) $invoice->adjusted_balance_due,
             $invoice->status,
         ];
     }

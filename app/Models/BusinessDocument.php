@@ -125,19 +125,19 @@ class BusinessDocument extends Model
 
         // 2. Sales Order / PO
         $salesOrder = $this->salesOrder;
-        if (!$salesOrder && $this->invoice?->salesOrder) {
+        if (! $salesOrder && $this->invoice?->salesOrder) {
             $salesOrder = $this->invoice->salesOrder;
         }
-        if (!$salesOrder && $this->shipment?->salesOrder) {
+        if (! $salesOrder && $this->shipment?->salesOrder) {
             $salesOrder = $this->shipment->salesOrder;
         }
 
         // 3. Commercial Shipment / LR
         $shipment = $this->shipment;
-        if (!$shipment && $this->invoice?->effective_shipment) {
+        if (! $shipment && $this->invoice?->effective_shipment) {
             $shipment = $this->invoice->effective_shipment;
         }
-        if (!$shipment && $salesOrder) {
+        if (! $shipment && $salesOrder) {
             $shipment = CommercialShipment::whereHas('items.salesOrderItem', function ($q) use ($salesOrder) {
                 $q->where('sales_order_id', $salesOrder->id);
             })->latest('shipment_date')->first();
@@ -145,11 +145,11 @@ class BusinessDocument extends Model
 
         // 4. Invoice
         $invoice = $this->invoice;
-        if (!$invoice && $salesOrder) {
+        if (! $invoice && $salesOrder) {
             $invoice = Invoice::where('sales_order_id', $salesOrder->id)->latest('invoice_date')->first();
         }
-        if (!$invoice && $shipment) {
-            $invoice = Invoice::where('commercial_shipment_id', $shipment->id)->latest('invoice_date')->first();
+        if (! $invoice && $shipment) {
+            $invoice = Invoice::with('creditDebitNotes')->where('commercial_shipment_id', $shipment->id)->latest('invoice_date')->first();
         }
 
         // 5. Payment Receipts
@@ -157,7 +157,8 @@ class BusinessDocument extends Model
         $balanceDue = 0.0;
         $totalReceived = 0.0;
         if ($invoice) {
-            $balanceDue = (float) $invoice->balance_due;
+            $invoice->loadMissing('creditDebitNotes');
+            $balanceDue = (float) $invoice->adjusted_balance_due;
             $totalReceived = (float) $invoice->amount_received;
             $receipts = $invoice->receipts()->orderByDesc('receipt_date')->get()->map(function ($r) {
                 return [
@@ -207,7 +208,7 @@ class BusinessDocument extends Model
                 'due_date' => $invoice->due_date?->format('d M Y'),
                 'total_amount' => (float) $invoice->total_amount,
                 'amount_received' => (float) $invoice->amount_received,
-                'balance_due' => (float) $invoice->balance_due,
+                'balance_due' => (float) $invoice->adjusted_balance_due,
                 'status' => $invoice->status,
             ] : null,
             'payments' => [
