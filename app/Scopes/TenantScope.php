@@ -2,10 +2,10 @@
 
 namespace App\Scopes;
 
+use App\Services\TenantManager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
-use App\Services\TenantManager;
 
 class TenantScope implements Scope
 {
@@ -14,6 +14,9 @@ class TenantScope implements Scope
         $tenantId = TenantManager::getTenantId();
         if ($tenantId) {
             $builder->where($model->qualifyColumn('tenant_id'), $tenantId);
+        } else {
+            // Fail closed: Prevent leaking records across tenants when tenant context is missing
+            $builder->whereRaw('1 = 0');
         }
     }
 }

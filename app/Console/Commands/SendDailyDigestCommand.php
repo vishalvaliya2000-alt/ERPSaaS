@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\PaymentReceipt;
 use App\Models\SalesOrder;
 use App\Models\Tenant;
+use App\Services\TenantManager;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -52,149 +53,151 @@ class SendDailyDigestCommand extends Command
         $tomorrow = Carbon::tomorrow();
 
         foreach ($tenants as $tenant) {
-            $this->line("\n=======================================================");
-            $this->info("🏢 {$tenant->name} — Daily Executive Digest (".$today->format('d M Y').')');
-            $this->line('=======================================================');
+            TenantManager::runAsTenant($tenant, function () use ($tenant, $today, $tomorrow) {
+                $this->line("\n=======================================================");
+                $this->info("🏢 {$tenant->name} — Daily Executive Digest (".$today->format('d M Y').')');
+                $this->line('=======================================================');
 
-            // 1. TODAY'S DISPATCHES
-            $todayShipments = CommercialShipment::withoutGlobalScopes()
-                ->with(['salesOrder.customer', 'items.salesOrderItem.product'])
-                ->where('tenant_id', $tenant->id)
-                ->whereDate('shipment_date', $today)
-                ->get();
+                // 1. TODAY'S DISPATCHES
+                $todayShipments = CommercialShipment::withoutGlobalScopes()
+                    ->with(['salesOrder.customer', 'items.salesOrderItem.product'])
+                    ->where('tenant_id', $tenant->id)
+                    ->whereDate('shipment_date', $today)
+                    ->get();
 
-            $totalDispatchedKg = 0;
-            $shipmentLines = [];
+                $totalDispatchedKg = 0;
+                $shipmentLines = [];
 
-            foreach ($todayShipments as $shp) {
-                $qty = (float) $shp->items->sum('quantity');
-                $totalDispatchedKg += $qty;
-                $cust = $shp->salesOrder?->customer ?? $shp->items->first()?->salesOrderItem?->salesOrder?->customer;
-                $custName = $cust?->company_name ?? 'Buyer';
-                $firstProd = $shp->items->first()?->salesOrderItem?->product?->product_name ?? 'Dehydrated goods';
-                $lr = $shp->lr_number ?: $shp->shipment_number;
-                $transporter = $shp->transporter ?: 'Direct Truck';
-                $dest = $shp->destination ?: ($cust?->city ?? 'Godown');
+                foreach ($todayShipments as $shp) {
+                    $qty = (float) $shp->items->sum('quantity');
+                    $totalDispatchedKg += $qty;
+                    $cust = $shp->salesOrder?->customer ?? $shp->items->first()?->salesOrderItem?->salesOrder?->customer;
+                    $custName = $cust?->company_name ?? 'Buyer';
+                    $firstProd = $shp->items->first()?->salesOrderItem?->product?->product_name ?? 'Dehydrated goods';
+                    $lr = $shp->lr_number ?: $shp->shipment_number;
+                    $transporter = $shp->transporter ?: 'Direct Truck';
+                    $dest = $shp->destination ?: ($cust?->city ?? 'Godown');
 
-                $shipmentLines[] = "• LR {$lr} ({$transporter}): ".number_format($qty)." KG {$firstProd} to {$dest} ({$custName})";
-            }
-
-            // 2. TODAY'S COLLECTIONS
-            $todayReceipts = PaymentReceipt::withoutGlobalScopes()
-                ->with('customer')
-                ->where('tenant_id', $tenant->id)
-                ->where('payment_mode', '!=', 'ADVANCE_OFFSET')
-                ->whereDate('receipt_date', $today)
-                ->get();
-
-            $totalCollected = (float) $todayReceipts->sum('amount_received');
-            $receiptLines = [];
-
-            foreach ($todayReceipts as $rec) {
-                $custName = $rec->customer?->company_name ?? 'Customer';
-                $ref = $rec->reference_number ? " [Ref: {$rec->reference_number}]" : '';
-                $mode = $rec->payment_mode ?: 'RTGS';
-                $receiptLines[] = "• {$custName}: ".formatINR($rec->amount_received)." ({$mode}{$ref})";
-            }
-
-            // 3. TODAY'S NEW SALES ORDERS
-            $todayOrders = SalesOrder::withoutGlobalScopes()
-                ->with(['customer', 'items'])
-                ->where('tenant_id', $tenant->id)
-                ->whereDate('order_date', $today)
-                ->get();
-
-            $totalOrderValue = (float) $todayOrders->sum('total_amount');
-            $totalOrderQty = 0;
-            $orderLines = [];
-
-            foreach ($todayOrders as $ord) {
-                $orderQty = (float) $ord->items->sum('order_qty');
-                $totalOrderQty += $orderQty;
-                $poNum = $ord->po_number ?: $ord->order_number;
-                $custName = $ord->customer?->company_name ?? 'Client';
-                $orderLines[] = "• PO {$poNum} ({$custName}): ".formatINR($ord->total_amount).' ('.number_format($orderQty).' KG)';
-            }
-
-            // 4. TOMORROW'S RECEIVABLES RADAR
-            $tomorrowInvoices = Invoice::withoutGlobalScopes()
-                ->with(['customer', 'creditDebitNotes'])
-                ->where('tenant_id', $tenant->id)
-                ->whereDate('due_date', $tomorrow)
-                ->get()
-                ->filter(fn ($i) => ! $i->is_settled && $i->adjusted_balance_due > 0);
-
-            $totalDueTomorrow = (float) $tomorrowInvoices->sum(fn ($i) => $i->adjusted_balance_due);
-            $tomorrowLines = [];
-
-            foreach ($tomorrowInvoices as $inv) {
-                $custName = $inv->customer?->company_name ?? 'Customer';
-                $tomorrowLines[] = "• Inv {$inv->invoice_number} ({$custName}): ".formatINR($inv->adjusted_balance_due);
-            }
-
-            // COMPOSE EXECUTIVE BRIEFING TEXT (WhatsApp-ready formatting)
-            $text = "🌙 *EVENING EXECUTIVE DIGEST* — {$tenant->name}\n";
-            $text .= '📅 '.$today->format('l, d F Y')." (7:00 PM Daily Briefing)\n";
-            $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
-
-            // Dispatches
-            $text .= "🚚 *TODAY'S FACTORY DISPATCHES*\n";
-            if ($todayShipments->isNotEmpty()) {
-                $text .= '• Total Loaded: '.number_format($totalDispatchedKg).' KG across '.$todayShipments->count()." consignment(s)\n";
-                foreach ($shipmentLines as $sl) {
-                    $text .= "  {$sl}\n";
+                    $shipmentLines[] = "• LR {$lr} ({$transporter}): ".number_format($qty)." KG {$firstProd} to {$dest} ({$custName})";
                 }
-            } else {
-                $text .= "• Zero dispatches scheduled or loaded today.\n";
-            }
-            $text .= "\n";
 
-            // Collections
-            $text .= "💰 *TODAY'S CASH COLLECTIONS (RTGS/BANK)*\n";
-            if ($todayReceipts->isNotEmpty()) {
-                $text .= '• Total Received: '.formatINR($totalCollected).' across '.$todayReceipts->count()." receipt(s)\n";
-                foreach ($receiptLines as $rl) {
-                    $text .= "  {$rl}\n";
+                // 2. TODAY'S COLLECTIONS
+                $todayReceipts = PaymentReceipt::withoutGlobalScopes()
+                    ->with('customer')
+                    ->where('tenant_id', $tenant->id)
+                    ->where('payment_mode', '!=', 'ADVANCE_OFFSET')
+                    ->whereDate('receipt_date', $today)
+                    ->get();
+
+                $totalCollected = (float) $todayReceipts->sum('amount_received');
+                $receiptLines = [];
+
+                foreach ($todayReceipts as $rec) {
+                    $custName = $rec->customer?->company_name ?? 'Customer';
+                    $ref = $rec->reference_number ? " [Ref: {$rec->reference_number}]" : '';
+                    $mode = $rec->payment_mode ?: 'RTGS';
+                    $receiptLines[] = "• {$custName}: ".formatINR($rec->amount_received)." ({$mode}{$ref})";
                 }
-            } else {
-                $text .= "• No bank credits or payment receipts recorded today.\n";
-            }
-            $text .= "\n";
 
-            // Sales Orders
-            $text .= "📝 *NEW CONTRACTS BOOKED TODAY*\n";
-            if ($todayOrders->isNotEmpty()) {
-                $text .= '• Total Booked: '.formatINR($totalOrderValue).' ('.number_format($totalOrderQty)." KG)\n";
-                foreach ($orderLines as $ol) {
-                    $text .= "  {$ol}\n";
+                // 3. TODAY'S NEW SALES ORDERS
+                $todayOrders = SalesOrder::withoutGlobalScopes()
+                    ->with(['customer', 'items'])
+                    ->where('tenant_id', $tenant->id)
+                    ->whereDate('order_date', $today)
+                    ->get();
+
+                $totalOrderValue = (float) $todayOrders->sum('total_amount');
+                $totalOrderQty = 0;
+                $orderLines = [];
+
+                foreach ($todayOrders as $ord) {
+                    $orderQty = (float) $ord->items->sum('order_qty');
+                    $totalOrderQty += $orderQty;
+                    $poNum = $ord->po_number ?: $ord->order_number;
+                    $custName = $ord->customer?->company_name ?? 'Client';
+                    $orderLines[] = "• PO {$poNum} ({$custName}): ".formatINR($ord->total_amount).' ('.number_format($orderQty).' KG)';
                 }
-            } else {
-                $text .= "• No new sales contracts logged today.\n";
-            }
-            $text .= "\n";
 
-            // Tomorrow's Radar
-            $text .= "🚨 *TOMORROW'S RECEIVABLES RADAR*\n";
-            if ($tomorrowInvoices->isNotEmpty()) {
-                $text .= '• Total Due Tomorrow: '.formatINR($totalDueTomorrow).' ('.$tomorrowInvoices->count()." invoice(s))\n";
-                foreach ($tomorrowLines as $tl) {
-                    $text .= "  {$tl}\n";
+                // 4. TOMORROW'S RECEIVABLES RADAR
+                $tomorrowInvoices = Invoice::withoutGlobalScopes()
+                    ->with(['customer', 'creditDebitNotes'])
+                    ->where('tenant_id', $tenant->id)
+                    ->whereDate('due_date', $tomorrow)
+                    ->get()
+                    ->filter(fn ($i) => ! $i->is_settled && $i->adjusted_balance_due > 0);
+
+                $totalDueTomorrow = (float) $tomorrowInvoices->sum(fn ($i) => $i->adjusted_balance_due);
+                $tomorrowLines = [];
+
+                foreach ($tomorrowInvoices as $inv) {
+                    $custName = $inv->customer?->company_name ?? 'Customer';
+                    $tomorrowLines[] = "• Inv {$inv->invoice_number} ({$custName}): ".formatINR($inv->adjusted_balance_due);
                 }
-            } else {
-                $text .= "• 0 customer invoices due tomorrow.\n";
-            }
-            $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
 
-            // Print to console
-            $this->line($text);
+                // COMPOSE EXECUTIVE BRIEFING TEXT (WhatsApp-ready formatting)
+                $text = "🌙 *EVENING EXECUTIVE DIGEST* — {$tenant->name}\n";
+                $text .= '📅 '.$today->format('l, d F Y')." (7:00 PM Daily Briefing)\n";
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
 
-            // Log activity record
-            ActivityLog::withoutGlobalScopes()->create([
-                'tenant_id' => $tenant->id,
-                'activity_type' => 'NOTE',
-                'title' => '🌙 7:00 PM Evening Digest Generated',
-                'description' => 'Dispatched: '.number_format($totalDispatchedKg).' KG | Collected: '.formatINR($totalCollected).' | Booked: '.formatINR($totalOrderValue),
-            ]);
+                // Dispatches
+                $text .= "🚚 *TODAY'S FACTORY DISPATCHES*\n";
+                if ($todayShipments->isNotEmpty()) {
+                    $text .= '• Total Loaded: '.number_format($totalDispatchedKg).' KG across '.$todayShipments->count()." consignment(s)\n";
+                    foreach ($shipmentLines as $sl) {
+                        $text .= "  {$sl}\n";
+                    }
+                } else {
+                    $text .= "• Zero dispatches scheduled or loaded today.\n";
+                }
+                $text .= "\n";
+
+                // Collections
+                $text .= "💰 *TODAY'S CASH COLLECTIONS (RTGS/BANK)*\n";
+                if ($todayReceipts->isNotEmpty()) {
+                    $text .= '• Total Received: '.formatINR($totalCollected).' across '.$todayReceipts->count()." receipt(s)\n";
+                    foreach ($receiptLines as $rl) {
+                        $text .= "  {$rl}\n";
+                    }
+                } else {
+                    $text .= "• No bank credits or payment receipts recorded today.\n";
+                }
+                $text .= "\n";
+
+                // Sales Orders
+                $text .= "📝 *NEW CONTRACTS BOOKED TODAY*\n";
+                if ($todayOrders->isNotEmpty()) {
+                    $text .= '• Total Booked: '.formatINR($totalOrderValue).' ('.number_format($totalOrderQty)." KG)\n";
+                    foreach ($orderLines as $ol) {
+                        $text .= "  {$ol}\n";
+                    }
+                } else {
+                    $text .= "• No new sales contracts logged today.\n";
+                }
+                $text .= "\n";
+
+                // Tomorrow's Radar
+                $text .= "🚨 *TOMORROW'S RECEIVABLES RADAR*\n";
+                if ($tomorrowInvoices->isNotEmpty()) {
+                    $text .= '• Total Due Tomorrow: '.formatINR($totalDueTomorrow).' ('.$tomorrowInvoices->count()." invoice(s))\n";
+                    foreach ($tomorrowLines as $tl) {
+                        $text .= "  {$tl}\n";
+                    }
+                } else {
+                    $text .= "• 0 customer invoices due tomorrow.\n";
+                }
+                $text .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+
+                // Print to console
+                $this->line($text);
+
+                // Log activity record
+                ActivityLog::withoutGlobalScopes()->create([
+                    'tenant_id' => $tenant->id,
+                    'activity_type' => 'NOTE',
+                    'title' => '🌙 7:00 PM Evening Digest Generated',
+                    'description' => 'Dispatched: '.number_format($totalDispatchedKg).' KG | Collected: '.formatINR($totalCollected).' | Booked: '.formatINR($totalOrderValue),
+                ]);
+            });
         }
 
         return 0;

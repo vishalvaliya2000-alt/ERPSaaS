@@ -17,10 +17,15 @@ beforeEach(function () {
     $this->user = User::firstOrCreate(
         ['email' => 'test_client_mgr@example.com'],
         [
+            'tenant_id' => $this->tenant->id,
             'name' => 'Client Account Tester',
             'password' => bcrypt('password123'),
         ]
     );
+    if ($this->user->tenant_id !== $this->tenant->id) {
+        $this->user->tenant_id = $this->tenant->id;
+        $this->user->save();
+    }
 
     TenantManager::setTenant($this->tenant);
 });

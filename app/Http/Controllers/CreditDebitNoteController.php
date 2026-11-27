@@ -6,7 +6,6 @@ use App\Models\CreditDebitNote;
 use App\Models\CreditDebitNoteItem;
 use App\Models\Customer;
 use App\Models\Invoice;
-use App\Models\Tenant;
 use App\Services\TenantManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +18,10 @@ class CreditDebitNoteController extends Controller
      */
     public function index(Request $request)
     {
-        $tenantId = TenantManager::getTenantId() ?? 1;
+        $tenantId = TenantManager::getTenantId();
+        if (! $tenantId) {
+            abort(403, 'Unauthorized: No active tenant context.');
+        }
         $search = $request->query('q', '');
         $type = $request->query('type', 'ALL');
         $status = $request->query('status', 'ALL');
@@ -112,7 +114,10 @@ class CreditDebitNoteController extends Controller
      */
     public function apiGetInvoice($invoiceId)
     {
-        $tenantId = TenantManager::getTenantId() ?? 1;
+        $tenantId = TenantManager::getTenantId();
+        if (! $tenantId) {
+            abort(403, 'Unauthorized: No active tenant context.');
+        }
         $invoice = Invoice::with(['customer', 'items.product'])
             ->where('tenant_id', $tenantId)
             ->findOrFail($invoiceId);
@@ -157,8 +162,11 @@ class CreditDebitNoteController extends Controller
      */
     public function store(Request $request)
     {
-        $tenantId = TenantManager::getTenantId() ?? 1;
-        $tenant = Tenant::find($tenantId) ?? Tenant::first();
+        $tenantId = TenantManager::getTenantId();
+        $tenant = TenantManager::getTenant();
+        if (! $tenantId || ! $tenant) {
+            abort(403, 'Unauthorized: No active tenant context.');
+        }
 
         $validated = $request->validate([
             'note_type' => 'required|in:CREDIT_NOTE,DEBIT_NOTE,CREDIT,DEBIT',
@@ -346,12 +354,15 @@ class CreditDebitNoteController extends Controller
      */
     public function show($id)
     {
-        $tenantId = TenantManager::getTenantId() ?? 1;
+        $tenantId = TenantManager::getTenantId();
+        $tenant = TenantManager::getTenant();
+        if (! $tenantId || ! $tenant) {
+            abort(403, 'Unauthorized: No active tenant context.');
+        }
+
         $note = CreditDebitNote::with(['customer', 'invoice', 'items.product', 'createdByUser'])
             ->where('tenant_id', $tenantId)
             ->findOrFail($id);
-
-        $tenant = Tenant::find($tenantId) ?? Tenant::first();
 
         return view('credit_debit_notes.show', compact('note', 'tenant'));
     }
@@ -361,12 +372,15 @@ class CreditDebitNoteController extends Controller
      */
     public function print($id)
     {
-        $tenantId = TenantManager::getTenantId() ?? 1;
+        $tenantId = TenantManager::getTenantId();
+        $tenant = TenantManager::getTenant();
+        if (! $tenantId || ! $tenant) {
+            abort(403, 'Unauthorized: No active tenant context.');
+        }
+
         $note = CreditDebitNote::with(['customer', 'invoice', 'items.product', 'createdByUser'])
             ->where('tenant_id', $tenantId)
             ->findOrFail($id);
-
-        $tenant = Tenant::find($tenantId) ?? Tenant::first();
 
         return view('credit_debit_notes.print', compact('note', 'tenant'));
     }
@@ -376,7 +390,10 @@ class CreditDebitNoteController extends Controller
      */
     public function cancel(Request $request, $id)
     {
-        $tenantId = TenantManager::getTenantId() ?? 1;
+        $tenantId = TenantManager::getTenantId();
+        if (! $tenantId) {
+            abort(403, 'Unauthorized: No active tenant context.');
+        }
 
         DB::beginTransaction();
         try {

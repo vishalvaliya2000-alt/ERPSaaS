@@ -42,37 +42,42 @@ class AppServiceProvider extends ServiceProvider
         });
 
         View::composer('*', function ($view) {
-            static $composerData = null;
+            static $cachedTenantId = -1;
+            static $cachedThemeData = null;
 
-            if ($composerData === null) {
+            $currentTenant = TenantManager::getTenant();
+            $tenantId = $currentTenant?->id;
+
+            if ($cachedThemeData === null || $cachedTenantId !== $tenantId) {
                 try {
-                    $currentUser = Auth::user();
-                    $currentTenant = TenantManager::getTenant();
-
                     $tenantTheme = $currentTenant?->settings['theme'] ?? null;
                     $primaryColor = $tenantTheme['primary_color'] ?? '#4f46e5';
                     $accentColor = $tenantTheme['accent_color'] ?? '#6366f1';
                     $brandShades = $tenantTheme['shades'] ?? ColorPaletteService::generateShades($primaryColor);
 
-                    $composerData = [
-                        'currentUser' => $currentUser,
-                        'currentTenant' => $currentTenant,
+                    $cachedThemeData = [
                         'primaryColor' => $primaryColor,
                         'accentColor' => $accentColor,
                         'brandShades' => $brandShades,
                     ];
+                    $cachedTenantId = $tenantId;
                 } catch (\Throwable $e) {
-                    $composerData = [
-                        'currentUser' => null,
-                        'currentTenant' => null,
+                    $cachedThemeData = [
                         'primaryColor' => '#4f46e5',
                         'accentColor' => '#6366f1',
                         'brandShades' => ColorPaletteService::generateShades('#4f46e5'),
                     ];
+                    $cachedTenantId = null;
                 }
             }
 
-            $view->with($composerData);
+            // Always resolve currentUser dynamically for the current request
+            $currentUser = Auth::user();
+
+            $view->with(array_merge($cachedThemeData, [
+                'currentUser' => $currentUser,
+                'currentTenant' => $currentTenant,
+            ]));
         });
     }
 }

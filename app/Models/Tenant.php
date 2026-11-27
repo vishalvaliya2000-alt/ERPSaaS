@@ -44,6 +44,10 @@ class Tenant extends Model
         'settings',
     ];
 
+    protected $attributes = [
+        'is_active' => true,
+    ];
+
     protected $casts = [
         'is_active' => 'boolean',
         'settings' => 'array',
@@ -83,12 +87,13 @@ class Tenant extends Model
 
     public function isExportCompany(): bool
     {
-        return !empty($this->iec_code) || in_array($this->currency_code, ['USD', 'EUR', 'GBP', 'AED']);
+        return ! empty($this->iec_code) || in_array($this->currency_code, ['USD', 'EUR', 'GBP', 'AED']);
     }
 
     public function getFullAddressAttribute(): string
     {
         $parts = array_filter([$this->address_line, $this->city, $this->state, $this->pincode, $this->country]);
+
         return implode(', ', $parts);
     }
 }

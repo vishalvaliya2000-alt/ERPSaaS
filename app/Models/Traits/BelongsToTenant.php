@@ -11,14 +11,21 @@ trait BelongsToTenant
 {
     public static function bootBelongsToTenant(): void
     {
-        static::addGlobalScope(new TenantScope());
+        static::addGlobalScope(new TenantScope);
 
         static::creating(function ($model) {
-            if (!$model->tenant_id) {
-                $tenantId = TenantManager::getTenantId();
-                if ($tenantId) {
-                    $model->tenant_id = $tenantId;
+            $activeTenantId = TenantManager::getTenantId();
+
+            if (! $model->tenant_id) {
+                if ($activeTenantId) {
+                    $model->tenant_id = $activeTenantId;
+                } else {
+                    throw new \InvalidArgumentException('Cannot create '.static::class.' without a valid tenant context.');
                 }
+            } elseif ($activeTenantId !== null && (int) $model->tenant_id !== (int) $activeTenantId) {
+                throw new \InvalidArgumentException('Cannot create '.static::class.' for tenant ['.$model->tenant_id.'] when active tenant context is ['.$activeTenantId.'].');
+            } elseif ($activeTenantId === null) {
+                throw new \InvalidArgumentException('Cannot create '.static::class.' without a valid tenant context.');
             }
         });
     }

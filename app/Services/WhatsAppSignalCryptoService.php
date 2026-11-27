@@ -13,7 +13,9 @@ class WhatsAppSignalCryptoService
      * - IV Length: 96 bits (12 bytes)
      */
     protected const CIPHER = 'aes-256-gcm';
+
     protected const TAG_LENGTH = 16;
+
     protected const IV_LENGTH = 12;
 
     /**
@@ -25,6 +27,7 @@ class WhatsAppSignalCryptoService
         if (str_starts_with($appKey, 'base64:')) {
             $appKey = base64_decode(substr($appKey, 7));
         }
+
         return hash('sha256', $appKey, true); // 32 bytes (256 bits)
     }
 
@@ -40,7 +43,8 @@ class WhatsAppSignalCryptoService
         $key = static::getKey();
         $iv = openssl_random_pseudo_bytes(static::IV_LENGTH);
         $tag = '';
-        $aad = $aad ?? 'TENANT_' . (TenantManager::getTenantId() ?? 1);
+        $tenantId = TenantManager::getTenantId() ?? 0;
+        $aad = $aad ?? 'TENANT_'.$tenantId;
 
         $ciphertext = openssl_encrypt(
             (string) $data,
@@ -70,10 +74,12 @@ class WhatsAppSignalCryptoService
     {
         try {
             $json = base64_decode($payload);
-            if (!$json) return null;
+            if (! $json) {
+                return null;
+            }
 
             $data = json_decode($json, true);
-            if (!isset($data['iv'], $data['tag'], $data['ciphertext'])) {
+            if (! isset($data['iv'], $data['tag'], $data['ciphertext'])) {
                 return null;
             }
 
@@ -102,11 +108,13 @@ class WhatsAppSignalCryptoService
     /**
      * Generate tamper-proof cryptographic verification seal for Invoices / LRs
      */
-    public static function generateDigitalSeal(string $documentNumber, float $amount, string $date): string
+    public static function generateDigitalSeal(string $documentNumber, float $amount, string $date, ?int $tenantId = null): string
     {
-        $payload = "DOC:{$documentNumber}|AMT:{$amount}|DT:{$date}|TENANT:" . (TenantManager::getTenantId() ?? 1);
+        $tenantId = $tenantId ?? TenantManager::getTenantId() ?? 0;
+        $payload = "DOC:{$documentNumber}|AMT:{$amount}|DT:{$date}|TENANT:{$tenantId}";
         $key = static::getKey();
         $hmac = hash_hmac('sha256', $payload, $key);
-        return 'SIG-' . strtoupper(substr($hmac, 0, 16));
+
+        return 'SIG-'.strtoupper(substr($hmac, 0, 16));
     }
 }
