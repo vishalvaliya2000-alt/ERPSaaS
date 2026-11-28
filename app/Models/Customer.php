@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Traits\BelongsToTenant;
+use App\Scopes\TenantScope;
 use App\Services\TenantManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -62,15 +63,26 @@ class Customer extends Model
     /**
      * Generate sequential, zero-padded customer code scoped to tenant (e.g. CUST-0001, CUST-0002).
      * Every new tenant starts at CUST-0001.
+     *
+     * @throws \InvalidArgumentException if no valid tenant context or ID is provided.
      */
     public static function generateNextCode(?int $tenantId = null): string
     {
-        $tenantId = $tenantId ?? TenantManager::getTenantId();
+        $resolvedTenantId = $tenantId ?? TenantManager::getTenantId();
 
-        $query = static::withoutGlobalScopes();
-        if ($tenantId) {
-            $query->where('tenant_id', $tenantId);
+        if (empty($resolvedTenantId) || (int) $resolvedTenantId <= 0) {
+            throw new \InvalidArgumentException('Cannot generate customer code without a valid tenant context.');
         }
+
+        $resolvedTenantId = (int) $resolvedTenantId;
+
+        $tenantExists = Tenant::where('id', $resolvedTenantId)->where('is_active', true)->exists();
+        if (! $tenantExists) {
+            throw new \InvalidArgumentException("Cannot generate customer code for invalid or inactive tenant [{$resolvedTenantId}].");
+        }
+
+        $query = static::withoutGlobalScope(TenantScope::class)
+            ->where('tenant_id', $resolvedTenantId);
 
         $codes = $query->whereNotNull('customer_code')->pluck('customer_code');
 

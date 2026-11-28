@@ -157,6 +157,64 @@ test('every new tenant starts customer code sequence from CUST-0001 independentl
     expect(Customer::withoutGlobalScopes()->where('tenant_id', $tenantB->id)->where('customer_code', 'CUST-0001')->exists())->toBeTrue();
 });
 
+test('Customer::generateNextCode fails closed without valid tenant and isolates sequences between tenants', function () {
+    TenantManager::clear();
+
+    // 1. Missing tenant context cannot query customer codes across tenants (fails closed)
+    expect(function () {
+        Customer::generateNextCode(null);
+    })->toThrow(InvalidArgumentException::class, 'without a valid tenant context');
+
+    // Also fails closed when explicit tenant ID does not exist or is inactive
+    expect(function () {
+        Customer::generateNextCode(999999);
+    })->toThrow(InvalidArgumentException::class, 'invalid or inactive tenant');
+
+    $tenantA = Tenant::create(['name' => 'Tenant Code A', 'slug' => 't-code-a-'.rand(1000, 9999), 'is_active' => true]);
+    $tenantB = Tenant::create(['name' => 'Tenant Code B', 'slug' => 't-code-b-'.rand(1000, 9999), 'is_active' => true]);
+
+    // 2. Tenant A generates its sequence using only Tenant A records
+    TenantManager::setTenant($tenantA);
+    expect(Customer::generateNextCode())->toBe('CUST-0001');
+
+    $custA1 = Customer::create([
+        'company_name' => 'Client A1',
+    ]);
+    expect($custA1->customer_code)->toBe('CUST-0001');
+    expect(Customer::generateNextCode())->toBe('CUST-0002');
+
+    $custA2 = Customer::create([
+        'company_name' => 'Client A2',
+    ]);
+    expect($custA2->customer_code)->toBe('CUST-0002');
+    expect(Customer::generateNextCode())->toBe('CUST-0003');
+
+    // 3. Tenant B generates its sequence using only Tenant B records (starts at CUST-0001 despite Tenant A having 2 records)
+    TenantManager::setTenant($tenantB);
+    expect(Customer::generateNextCode())->toBe('CUST-0001');
+
+    // 4. One tenant's customer records cannot influence another tenant's generated code
+    $custB1 = Customer::create([
+        'company_name' => 'Client B1',
+    ]);
+    expect($custB1->customer_code)->toBe('CUST-0001');
+    expect(Customer::generateNextCode())->toBe('CUST-0002');
+
+    // Switch back to Tenant A: Tenant A should still be at CUST-0003, unaffected by Tenant B
+    TenantManager::setTenant($tenantA);
+    expect(Customer::generateNextCode())->toBe('CUST-0003');
+
+    // Explicit tenant ID passed to generateNextCode works legitimately for active tenant
+    expect(Customer::generateNextCode($tenantB->id))->toBe('CUST-0002');
+    expect(Customer::generateNextCode($tenantA->id))->toBe('CUST-0003');
+
+    // 5. Existing legitimate customer creation workflows still work
+    $custA3 = Customer::create([
+        'company_name' => 'Client A3',
+    ]);
+    expect($custA3->customer_code)->toBe('CUST-0003');
+});
+
 test('customer product fulfillment summary accurately calculates quantities per product', function () {
     TenantManager::setTenant($this->tenant);
 

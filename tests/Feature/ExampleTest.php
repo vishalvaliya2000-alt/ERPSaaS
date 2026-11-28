@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Tenant;
 use App\Models\User;
 
 test('unauthenticated users are redirected to login', function () {
@@ -9,10 +10,15 @@ test('unauthenticated users are redirected to login', function () {
 });
 
 test('authenticated users can access the dashboard', function () {
-    $user = User::first();
-    if (!$user) {
-        $user = User::factory()->create();
-    }
+    $tenant = Tenant::create([
+        'name' => 'Example Tenant',
+        'slug' => 'example-tenant-'.rand(1000, 9999),
+        'is_active' => true,
+    ]);
+
+    $user = User::factory()->create([
+        'tenant_id' => $tenant->id,
+    ]);
 
     $response = $this->actingAs($user)->get('/');
 

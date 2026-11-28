@@ -1,14 +1,12 @@
 <?php
 
+use App\Livewire\Common\CommandPalette;
 use App\Models\Customer;
-use App\Models\Invoice;
-use App\Models\CommercialShipment;
 use App\Models\SalesOrder;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\TenantManager;
 use Livewire\Livewire;
-use App\Livewire\Common\CommandPalette;
 
 beforeEach(function () {
     $this->tenantA = Tenant::first() ?? Tenant::create([
@@ -65,46 +63,49 @@ test('command palette opens and closes on events', function () {
 });
 
 test('command palette searches records and enforces strict multi-tenancy isolation', function () {
+    // Tenant A Customer & Order created within Tenant A context
+    $custA = TenantManager::runAsTenant($this->tenantA, function () {
+        $cust = Customer::create([
+            'tenant_id' => $this->tenantA->id,
+            'company_name' => 'Zenith Onion Exporters',
+            'primary_contact_person' => 'Zenith Contact',
+            'city' => 'Bhavnagar',
+            'customer_type' => 'DOMESTIC',
+        ]);
+
+        SalesOrder::create([
+            'tenant_id' => $this->tenantA->id,
+            'customer_id' => $cust->id,
+            'order_number' => 'SO-ZENITH-999',
+            'order_date' => now(),
+            'total_amount' => 50000,
+            'status' => 'CONFIRMED',
+        ]);
+
+        return $cust;
+    });
+
+    // Tenant B Customer & Order created within Tenant B context
+    TenantManager::runAsTenant($this->tenantB, function () {
+        $custB = Customer::create([
+            'tenant_id' => $this->tenantB->id,
+            'company_name' => 'Zenith Global Foreign Foods',
+            'primary_contact_person' => 'Foreign Contact',
+            'city' => 'Mumbai',
+            'customer_type' => 'EXPORT',
+        ]);
+
+        SalesOrder::create([
+            'tenant_id' => $this->tenantB->id,
+            'customer_id' => $custB->id,
+            'order_number' => 'SO-ZENITH-000',
+            'order_date' => now(),
+            'total_amount' => 90000,
+            'status' => 'CONFIRMED',
+        ]);
+    });
+
     $this->actingAs($this->user);
-
-    // Tenant A Customer
-    $custA = Customer::create([
-        'tenant_id' => $this->tenantA->id,
-        'company_name' => 'Zenith Onion Exporters',
-        'primary_contact_person' => 'Zenith Contact',
-        'city' => 'Bhavnagar',
-        'customer_type' => 'DOMESTIC',
-    ]);
-
-    // Tenant B Customer
-    $custB = Customer::create([
-        'tenant_id' => $this->tenantB->id,
-        'company_name' => 'Zenith Global Foreign Foods',
-        'primary_contact_person' => 'Foreign Contact',
-        'city' => 'Mumbai',
-        'customer_type' => 'EXPORT',
-    ]);
-
-    // Tenant A Order
-    $orderA = SalesOrder::create([
-        'tenant_id' => $this->tenantA->id,
-        'customer_id' => $custA->id,
-        'order_number' => 'SO-ZENITH-999',
-        'order_date' => now(),
-        'total_amount' => 50000,
-        'status' => 'CONFIRMED',
-    ]);
-
-    // Tenant B Order
-    $orderB = SalesOrder::create([
-        'tenant_id' => $this->tenantB->id,
-        'customer_id' => $custB->id,
-        'order_number' => 'SO-ZENITH-000',
-        'order_date' => now(),
-        'total_amount' => 90000,
-        'status' => 'CONFIRMED',
-    ]);
-
     TenantManager::setTenant($this->tenantA);
 
     Livewire::test(CommandPalette::class)
