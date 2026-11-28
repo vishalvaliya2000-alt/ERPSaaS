@@ -2,9 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Customer;
+use App\Policies\CustomerPolicy;
 use App\Services\ColorPaletteService;
 use App\Services\TenantManager;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
@@ -21,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Gate::policy(Customer::class, CustomerPolicy::class);
+
         if (app()->environment('production') || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
             URL::forceScheme('https');
         }

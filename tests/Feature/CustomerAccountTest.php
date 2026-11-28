@@ -20,10 +20,12 @@ beforeEach(function () {
             'tenant_id' => $this->tenant->id,
             'name' => 'Client Account Tester',
             'password' => bcrypt('password123'),
+            'role' => 'ADMIN',
         ]
     );
-    if ($this->user->tenant_id !== $this->tenant->id) {
+    if ($this->user->tenant_id !== $this->tenant->id || empty($this->user->role)) {
         $this->user->tenant_id = $this->tenant->id;
+        $this->user->role = 'ADMIN';
         $this->user->save();
     }
 

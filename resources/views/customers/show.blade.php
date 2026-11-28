@@ -83,7 +83,7 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3.5 mt-6 pt-6 border-t border-neutral-100 text-center">
             <div class="bg-[#F5F6F8] p-3 rounded-2xl border border-neutral-200/60">
                 <span class="text-[10px] font-bold text-neutral-400 uppercase block font-mono">Total Sales</span>
-                <p class="text-base font-black text-neutral-900 mt-1 font-display">{{ formatINR($customer->total_revenue) }}</p>
+                <p class="text-base font-black text-neutral-900 mt-1 font-display">{{ formatINR($customer->total_revenue > 0 ? $customer->total_revenue : (float) $customer->invoices->sum('total_amount')) }}</p>
             </div>
             <div class="bg-[#F5F6F8] p-3 rounded-2xl border border-neutral-200/60">
                 <span class="text-[10px] font-bold text-neutral-400 uppercase block font-mono">Outstanding</span>
@@ -231,10 +231,130 @@
         </div>
 
         <!-- Payments / Outstanding -->
-        <div x-show="tab === 'payments'" class="space-y-4 text-center py-12">
-            <div class="text-4xl mb-3">💸</div>
-            <h3 class="font-bold text-lg text-slate-800">No Payments Recorded</h3>
-            <p class="text-slate-500 max-w-md mx-auto">Record payment receipts against invoices to see the ledger balance here.</p>
+        <div x-show="tab === 'payments'" class="space-y-6">
+            <!-- Financial Overview Header -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-[#F5F6F8] p-4 rounded-2xl border border-neutral-200/60 shadow-2xs">
+                    <span class="text-[10px] font-bold text-neutral-400 uppercase font-mono block">Lifetime Billed Revenue</span>
+                    <p class="text-lg font-black text-neutral-900 font-display mt-1">{{ formatINR($customer->total_revenue > 0 ? $customer->total_revenue : (float) $customer->invoices->sum('total_amount')) }}</p>
+                </div>
+                <div class="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-200/80 shadow-2xs">
+                    <span class="text-[10px] font-bold text-emerald-700 uppercase font-mono block">Total Received Payments</span>
+                    <p class="text-lg font-black text-emerald-700 font-display mt-1">{{ formatINR($customer->paymentReceipts->sum('amount_received')) }}</p>
+                </div>
+                <div class="bg-blue-50/60 p-4 rounded-2xl border border-blue-200/80 shadow-2xs">
+                    <span class="text-[10px] font-bold text-blue-700 uppercase font-mono block">Unadjusted PO Advances</span>
+                    <p class="text-lg font-black text-blue-700 font-display mt-1">{{ formatINR($unadjustedAdvances ?? 0) }}</p>
+                </div>
+                <div class="p-4 rounded-2xl border shadow-2xs {{ ($netOutstanding ?? $customer->outstanding_amount) > 0 ? 'bg-rose-50/60 border-rose-200/80' : 'bg-emerald-50/60 border-emerald-200/80' }}">
+                    <span class="text-[10px] font-bold uppercase font-mono block {{ ($netOutstanding ?? $customer->outstanding_amount) > 0 ? 'text-rose-700' : 'text-emerald-700' }}">Net Outstanding Balance</span>
+                    <p class="text-lg font-black font-display mt-1 {{ ($netOutstanding ?? $customer->outstanding_amount) > 0 ? 'text-rose-700' : 'text-emerald-700' }}">
+                        {{ formatINR($netOutstanding ?? $customer->outstanding_amount) }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Payment Receipts History Section -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="font-extrabold text-sm text-neutral-900 font-display">Payment & Advance Receipts</h4>
+                        <p class="text-xs text-neutral-500 font-medium">Recorded payment entries, RTGS/NEFT transaction references, and allocations</p>
+                    </div>
+                    <span class="font-mono text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#F5F6F8] text-neutral-700 border border-neutral-200/80">
+                        {{ $customer->paymentReceipts->count() }} {{ Str::plural('Receipt', $customer->paymentReceipts->count()) }}
+                    </span>
+                </div>
+
+                @if($customer->paymentReceipts->isEmpty())
+                    <div class="p-8 text-center bg-[#F5F6F8] rounded-2xl border border-dashed border-neutral-200 space-y-2">
+                        <div class="text-3xl">💸</div>
+                        <p class="font-extrabold text-sm text-neutral-800 font-display">No Payment Receipts Recorded</p>
+                        <p class="text-xs text-neutral-500 max-w-md mx-auto">
+                            Payment receipts booked against Sales Orders or Tax Invoices will appear here with mode, reference, and allocation details.
+                        </p>
+                    </div>
+                @else
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @foreach($customer->paymentReceipts as $rcpt)
+                            <div class="bg-white rounded-2xl border border-neutral-200/80 p-4 shadow-2xs hover:border-neutral-300 transition-all space-y-3">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-mono font-black text-sm text-neutral-900">{{ $rcpt->receipt_number }}</span>
+                                            <span class="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                {{ str_replace('_', ' ', $rcpt->receipt_type) }}
+                                            </span>
+                                        </div>
+                                        <p class="text-xs text-neutral-500 font-mono mt-0.5">
+                                            Date: {{ $rcpt->receipt_date ? $rcpt->receipt_date->format('d M Y') : '—' }} · Mode: <b class="text-neutral-800">{{ $rcpt->payment_mode ?? 'RTGS' }}</b>
+                                        </p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-[10px] uppercase font-bold text-neutral-400 font-mono block">Amount Received</span>
+                                        <span class="font-black text-base text-emerald-700 font-display">{{ formatINR($rcpt->amount_received) }}</span>
+                                    </div>
+                                </div>
+
+                                <div class="p-2.5 bg-[#F5F6F8] rounded-xl border border-neutral-200/60 text-xs space-y-1">
+                                    @if($rcpt->salesOrder)
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-neutral-500">Linked Sales Order:</span>
+                                            <span class="font-mono font-bold text-neutral-800">PO #{{ $rcpt->salesOrder->order_number }}</span>
+                                        </div>
+                                    @endif
+                                    @if($rcpt->invoice)
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-neutral-500">Linked Invoice:</span>
+                                            <span class="font-mono font-bold text-neutral-800">{{ $rcpt->invoice->invoice_number }}</span>
+                                        </div>
+                                    @endif
+                                    @if($rcpt->reference_number)
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-neutral-500">UTR / Ref:</span>
+                                            <span class="font-mono text-neutral-700">{{ $rcpt->reference_number }}</span>
+                                        </div>
+                                    @endif
+                                    @if(!$rcpt->salesOrder && !$rcpt->invoice && !$rcpt->reference_number)
+                                        <span class="text-neutral-400 italic">Direct Account Credit</span>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+
+            <!-- Standalone Credit & Debit Notes Section -->
+            @php
+                $standaloneNotes = $customer->creditDebitNotes->whereNull('invoice_id');
+            @endphp
+            @if($standaloneNotes->isNotEmpty())
+                <div class="space-y-3 pt-4 border-t border-neutral-100">
+                    <div class="flex items-center justify-between">
+                        <h4 class="font-extrabold text-sm text-neutral-900 font-display">Standalone Credit & Debit Adjustments</h4>
+                        <span class="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700">
+                            {{ $standaloneNotes->count() }} Notes
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        @foreach($standaloneNotes as $note)
+                            <div class="bg-white rounded-2xl border border-neutral-200/80 p-3.5 shadow-2xs space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono font-bold text-xs text-neutral-900">{{ $note->note_number }}</span>
+                                        <span class="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase {{ in_array($note->note_type, ['CREDIT_NOTE', 'CREDIT']) ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200' }}">
+                                            {{ in_array($note->note_type, ['CREDIT_NOTE', 'CREDIT']) ? 'Credit Note (-)' : 'Debit Note (+)' }}
+                                        </span>
+                                    </div>
+                                    <span class="font-mono font-black text-xs text-neutral-900">{{ formatINR($note->total_amount) }}</span>
+                                </div>
+                                <p class="text-xs text-neutral-500">{{ $note->reason ?? 'Account adjustment' }} · <span class="font-mono">{{ $note->note_date ? $note->note_date->format('d M Y') : '—' }}</span></p>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
 
         <!-- Orders -->
@@ -242,133 +362,170 @@
             <!-- Product-Wise Fulfillment Summary -->
             @include('customers.partials.product_fulfillment_widget', ['customer' => $customer])
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs border-collapse">
-                    <thead>
-                        <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
-                            <th class="p-3 font-bold">Order No</th>
-                            <th class="p-3 font-bold">Date</th>
-                            <th class="p-3 font-bold">Items & Granulations</th>
-                            <th class="p-3 font-bold text-right">Order Qty</th>
-                            <th class="p-3 font-bold text-right">Shipped Qty</th>
-                            <th class="p-3 font-bold text-right">Balance Qty</th>
-                            <th class="p-3 font-bold text-right">Total Value</th>
-                            <th class="p-3 font-bold text-center">Status</th>
-                            <th class="p-3 font-bold text-center">Customer PO Doc</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @foreach($customer->salesOrders as $so)
-                            @php
-                                $totalQ = $so->items->sum('order_qty');
-                                $shippedQ = $so->items->sum('shipped_qty');
-                                $balanceQ = $so->items->sum('balance_qty');
-                                $poDoc = $so->poDocument ?? $so->documents->where('document_type', 'PO')->first();
-                            @endphp
-                            <tr class="hover:bg-slate-50">
-                                <td class="p-3 font-bold text-slate-900">{{ $so->order_number }}</td>
-                                <td class="p-3 text-slate-600">{{ $so->order_date->format('d M Y') }}</td>
-                                <td class="p-3">
-                                    @foreach($so->items as $it)
-                                        <div class="font-medium text-slate-800">{{ $it->product->product_name }} ({{ number_format($it->order_qty) }} kg @ ₹{{ $it->rate }})</div>
-                                    @endforeach
-                                </td>
-                                <td class="p-3 text-right font-bold text-slate-900">{{ formatQuantity($totalQ) }}</td>
-                                <td class="p-3 text-right font-bold text-emerald-600">{{ formatQuantity($shippedQ) }}</td>
-                                <td class="p-3 text-right font-bold text-amber-600">{{ formatQuantity($balanceQ) }}</td>
-                                <td class="p-3 text-right font-black text-slate-900">{{ formatINR($so->total_amount) }}</td>
-                                <td class="p-3 text-center">
-                                    <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full {{ $so->status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' }}">
-                                        {{ str_replace('_', ' ', $so->status) }}
-                                    </span>
-                                </td>
-                                <td class="p-3 text-center whitespace-nowrap">
+            @if($customer->salesOrders->isEmpty())
+                <div class="p-8 text-center bg-[#F5F6F8] rounded-2xl border border-dashed border-neutral-200 space-y-2">
+                    <div class="text-3xl">📋</div>
+                    <p class="font-extrabold text-sm text-neutral-800 font-display">No Sales Orders Recorded</p>
+                    <p class="text-xs text-neutral-500 max-w-sm mx-auto">
+                        Sales orders confirmed for this client will appear here with product line items, dispatch fulfillment, and PO documents.
+                    </p>
+                </div>
+            @else
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    @foreach($customer->salesOrders as $so)
+                        @php
+                            $totalQ = $so->items->sum('order_qty');
+                            $shippedQ = $so->items->sum('shipped_qty');
+                            $balanceQ = $so->items->sum('balance_qty');
+                            $poDoc = $so->poDocument ?? $so->documents->where('document_type', 'PO')->first();
+                        @endphp
+                        <div class="bg-white rounded-2xl border border-neutral-200/80 p-4 shadow-2xs hover:border-neutral-300 transition-all space-y-3">
+                            <!-- Card Header -->
+                            <div class="flex items-start justify-between gap-2 pb-2.5 border-b border-neutral-100">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono font-black text-sm text-neutral-900">{{ $so->order_number }}</span>
+                                        <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full {{ $so->status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200' }}">
+                                            {{ str_replace('_', ' ', $so->status) }}
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-neutral-500 font-mono mt-0.5">
+                                        Date: {{ $so->order_date ? $so->order_date->format('d M Y') : '—' }}
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="font-black text-sm text-neutral-900 font-display">{{ formatINR($so->total_amount) }}</span>
                                     @if($poDoc)
-                                        <div class="inline-flex items-center gap-1.5 justify-center">
+                                        <div class="inline-flex items-center gap-1 ml-1">
                                             <a href="{{ route('documents.preview', $poDoc->id) }}" target="_blank" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#091315] text-[#D7FF53] hover:bg-black transition-colors" title="Preview Customer PO Document">
-                                                📄 View
+                                                📄 PO
                                             </a>
                                             <a href="{{ route('documents.download', $poDoc->id) }}" class="p-0.5 text-neutral-600 hover:text-neutral-900 text-xs" title="Download">
                                                 📥
                                             </a>
                                         </div>
-                                    @else
-                                        <span class="text-neutral-400 italic text-[11px]">—</span>
                                     @endif
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+                                </div>
+                            </div>
+
+                            <!-- Line Items -->
+                            <div class="space-y-1.5 text-xs">
+                                <span class="text-[10px] uppercase font-bold text-neutral-400 font-mono block">Order Items & Rates</span>
+                                @foreach($so->items as $it)
+                                    <div class="flex items-center justify-between p-2 bg-[#F5F6F8] rounded-xl text-neutral-800">
+                                        <span class="font-medium truncate">{{ $it->product->product_name ?? 'Product' }}</span>
+                                        <span class="font-mono font-bold text-neutral-900 shrink-0 ml-2">
+                                            {{ number_format($it->order_qty) }} kg @ ₹{{ $it->rate }}/kg
+                                        </span>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <!-- Fulfillment Breakdown Metrics -->
+                            <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono pt-1">
+                                <div class="bg-[#F5F6F8] p-2 rounded-xl border border-neutral-200/60">
+                                    <span class="text-[9px] uppercase font-bold text-neutral-400 block">Ordered</span>
+                                    <span class="font-black text-neutral-900 text-xs mt-0.5 block">{{ formatQuantity($totalQ) }}</span>
+                                </div>
+                                <div class="bg-[#F5F6F8] p-2 rounded-xl border border-neutral-200/60">
+                                    <span class="text-[9px] uppercase font-bold text-emerald-600 block">Shipped</span>
+                                    <span class="font-black text-emerald-600 text-xs mt-0.5 block">{{ formatQuantity($shippedQ) }}</span>
+                                </div>
+                                <div class="p-2 rounded-xl border {{ $balanceQ > 0 ? 'bg-amber-50/60 border-amber-200/80' : 'bg-[#F5F6F8] border-neutral-200/60' }}">
+                                    <span class="text-[9px] uppercase font-bold {{ $balanceQ > 0 ? 'text-amber-700' : 'text-neutral-400' }} block">Balance</span>
+                                    <span class="font-black text-xs mt-0.5 block {{ $balanceQ > 0 ? 'text-amber-600' : 'text-neutral-400' }}">{{ formatQuantity($balanceQ) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </div>
 
         <!-- Shipments -->
         <div x-show="tab === 'shipments'" class="space-y-4">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs border-collapse">
-                    <thead>
-                        <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
-                            <th class="p-3 font-bold">Shipment No</th>
-                            <th class="p-3 font-bold">Date</th>
-                            <th class="p-3 font-bold">Transporter</th>
-                            <th class="p-3 font-bold">LR Number</th>
-                            <th class="p-3 font-bold">Dispatched Products</th>
-                            <th class="p-3 font-bold text-center">Status</th>
-                            <th class="p-3 font-bold text-center">LR Document</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @foreach($customer->salesOrders->flatMap->shipments as $sh)
-                            @php
-                                $lrDoc = $sh->lrDocument ?? ($customer->documents->where('document_type', 'LR')->where('commercial_shipment_id', $sh->id)->first());
-                            @endphp
-                            <tr class="hover:bg-slate-50">
-                                <td class="p-3 font-bold text-slate-900">{{ $sh->shipment_number }}</td>
-                                <td class="p-3 text-slate-600">{{ $sh->shipment_date->format('d M Y') }}</td>
-                                <td class="p-3 font-bold text-slate-800">{{ $sh->transporter }}</td>
-                                <td class="p-3">
-                                    <div class="flex items-center gap-2">
+            @php
+                $shipments = $customer->salesOrders->flatMap->shipments;
+            @endphp
+            @if($shipments->isEmpty())
+                <div class="p-8 text-center bg-white rounded-3xl border border-neutral-200/60 shadow-2xs space-y-2">
+                    <div class="w-10 h-10 rounded-2xl bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto text-lg">🚚</div>
+                    <p class="font-extrabold text-sm text-neutral-800">No Shipments Found</p>
+                    <p class="text-xs text-neutral-400">There are no commercial dispatches or shipments recorded for this customer yet.</p>
+                </div>
+            @else
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach($shipments as $sh)
+                        @php
+                            $lrDoc = $sh->lrDocument ?? ($customer->documents->where('document_type', 'LR')->where('commercial_shipment_id', $sh->id)->first());
+                        @endphp
+                        <div class="bg-white rounded-2xl border border-neutral-200/80 p-4 space-y-3 shadow-2xs hover:shadow-xs transition-shadow">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <span class="font-black text-sm text-neutral-900 block font-mono">{{ $sh->shipment_number }}</span>
+                                    <span class="text-[11px] text-neutral-400 font-medium">{{ $sh->shipment_date->format('d M Y') }}</span>
+                                </div>
+                                <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase">
+                                    {{ $sh->status }}
+                                </span>
+                            </div>
+
+                            <div class="p-3 bg-[#F5F6F8] rounded-xl border border-neutral-200/60 space-y-2 text-xs">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] uppercase font-bold text-neutral-400">Transporter</span>
+                                    <span class="font-bold text-neutral-800">{{ $sh->transporter }}</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] uppercase font-bold text-neutral-400">LR Number</span>
+                                    <div class="flex items-center gap-1.5">
                                         <span class="font-mono font-bold text-brand-700">{{ $sh->lr_number }}</span>
                                         @if($sh->tracking_url)
                                             <button
                                                 type="button"
                                                 onclick="openLiveTracking({{ $sh->id }}, '{{ $sh->lr_number }}', '{{ addslashes($sh->transporter) }}')"
-                                                class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border border-blue-200 transition-colors shadow-2xs cursor-pointer active:scale-95"
+                                                class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border border-blue-200 transition-colors cursor-pointer"
                                                 title="View live shipment tracking details inside ERP"
                                             >
                                                 <span>📍</span> Track
                                             </button>
                                         @endif
                                     </div>
-                                </td>
-                                <td class="p-3">
+                                </div>
+                            </div>
+
+                            <!-- Dispatched Products -->
+                            <div class="space-y-1.5 text-xs">
+                                <span class="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Dispatched Items</span>
+                                <div class="space-y-1">
                                     @foreach($sh->items as $it)
-                                        <div>{{ $it->salesOrderItem->product->product_name ?? 'Dehydrated item' }}: <b>{{ number_format($it->quantity) }} kg</b></div>
-                                    @endforeach
-                                </td>
-                                <td class="p-3 text-center">
-                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase">{{ $sh->status }}</span>
-                                </td>
-                                <td class="p-3 text-center whitespace-nowrap">
-                                    @if($lrDoc)
-                                        <div class="inline-flex items-center gap-1.5 justify-center">
-                                            <a href="{{ route('documents.preview', $lrDoc->id) }}" target="_blank" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors" title="Preview Transporter Bilty / LR">
-                                                🚚 View
-                                            </a>
-                                            <a href="{{ route('documents.download', $lrDoc->id) }}" class="p-0.5 text-neutral-600 hover:text-neutral-900 text-xs" title="Download">
-                                                📥
-                                            </a>
+                                        <div class="flex items-center justify-between text-neutral-700 bg-neutral-50 px-2 py-1 rounded-lg border border-neutral-100 text-[11px]">
+                                            <span class="truncate pr-2">{{ $it->salesOrderItem->product->product_name ?? 'Dehydrated item' }}</span>
+                                            <span class="font-bold text-neutral-900 shrink-0">{{ number_format($it->quantity) }} kg</span>
                                         </div>
-                                    @else
-                                        <span class="text-neutral-400 italic text-[11px]">—</span>
-                                    @endif
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <!-- LR Document actions -->
+                            <div class="pt-2 border-t border-neutral-100 flex items-center justify-between">
+                                <span class="text-[10px] font-bold text-neutral-400 uppercase">LR Document</span>
+                                @if($lrDoc)
+                                    <div class="inline-flex items-center gap-1.5">
+                                        <a href="{{ route('documents.preview', $lrDoc->id) }}" target="_blank" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors" title="Preview Transporter Bilty / LR">
+                                            🚚 View Bilty
+                                        </a>
+                                        <a href="{{ route('documents.download', $lrDoc->id) }}" class="p-1 rounded-lg text-neutral-600 hover:bg-neutral-100 text-xs" title="Download">
+                                            📥
+                                        </a>
+                                    </div>
+                                @else
+                                    <span class="text-neutral-400 italic text-[11px]">No LR attached</span>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </div>
 
         <!-- Invoices & Receipts -->
@@ -466,73 +623,84 @@
                 </button>
             </div>
 
-            <div class="overflow-x-auto rounded-xl border border-slate-200">
-                <table class="w-full text-xs text-left">
-                    <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                        <tr>
-                            <th class="p-3">Quotation #</th>
-                            <th class="p-3">Date</th>
-                            <th class="p-3">Products & Packaging</th>
-                            <th class="p-3 text-right">Subtotal</th>
-                            <th class="p-3 text-right">GST (5%)</th>
-                            <th class="p-3 text-right">Total Amount</th>
-                            <th class="p-3">Payment Terms</th>
-                            <th class="p-3 text-center">Status</th>
-                            <th class="p-3 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 font-medium">
-                        @forelse($customer->quotations as $quo)
-                            <tr class="hover:bg-slate-50">
-                                <td class="p-3 font-bold text-amber-700">
-                                    <a href="{{ route('quotations.show', $quo->id) }}" target="_blank" class="hover:underline">
-                                        {{ $quo->quotation_number }}
-                                    </a>
-                                </td>
-                                <td class="p-3 text-slate-600">{{ $quo->quotation_date->format('d M Y') }}</td>
-                                <td class="p-3 text-slate-800">
-                                    @foreach($quo->items as $it)
-                                        <div class="text-xs">
-                                            <b>{{ $it->product?->product_name }}</b> — {{ number_format($it->quantity) }} KG @ ₹{{ $it->rate }}/KG
-                                        </div>
-                                    @endforeach
-                                </td>
-                                <td class="p-3 text-right font-semibold text-slate-700">{{ formatINR($quo->subtotal) }}</td>
-                                <td class="p-3 text-right text-slate-500">{{ formatINR($quo->tax_amount) }}</td>
-                                <td class="p-3 text-right font-black text-slate-900">{{ formatINR($quo->total_amount) }}</td>
-                                <td class="p-3 text-slate-600">{{ $quo->payment_terms }}</td>
-                                <td class="p-3 text-center">
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase">
+            @if($customer->quotations->isEmpty())
+                <div class="p-8 text-center bg-white rounded-3xl border border-neutral-200/60 shadow-2xs space-y-2">
+                    <div class="w-10 h-10 rounded-2xl bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto text-lg">📑</div>
+                    <p class="font-extrabold text-sm text-neutral-800">No Quotations Found</p>
+                    <p class="text-xs text-neutral-400">No quotations generated for this customer yet. Click "Generate New Quotation" above.</p>
+                </div>
+            @else
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach($customer->quotations as $quo)
+                        <div class="bg-white rounded-2xl border border-neutral-200/80 p-4 space-y-3 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
+                            <div class="space-y-3">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div>
+                                        <a href="{{ route('quotations.show', $quo->id) }}" target="_blank" class="font-black text-sm text-amber-700 hover:underline block font-mono">
+                                            {{ $quo->quotation_number }}
+                                        </a>
+                                        <span class="text-[11px] text-neutral-400 font-medium">{{ $quo->quotation_date->format('d M Y') }}</span>
+                                    </div>
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase">
                                         {{ $quo->status }}
                                     </span>
-                                </td>
-                                <td class="p-3 text-right space-x-1 whitespace-nowrap">
-                                    <a
-                                        href="{{ route('quotations.show', $quo->id) }}"
-                                        target="_blank"
-                                        class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] inline-block"
-                                    >
-                                        📄 View PDF
-                                    </a>
-                                    <a
-                                        href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $customer->primary_phone ?: '919826011223') }}?text={{ urlencode('Hi ' . ($customer->primary_contact_person ?: 'Sir') . ', sharing our official Quotation ' . $quo->quotation_number . ' for ' . formatINR($quo->total_amount) . '. View here: ' . route('quotations.show', $quo->id)) }}"
-                                        target="_blank"
-                                        class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[11px] inline-block"
-                                    >
-                                        💬 WhatsApp
-                                    </a>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="9" class="p-8 text-center text-xs text-slate-400">
-                                    No quotations generated for this customer yet. Click "Generate New Quotation" above.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                                </div>
+
+                                <!-- Items -->
+                                <div class="p-2.5 bg-[#F5F6F8] rounded-xl border border-neutral-200/60 space-y-1.5">
+                                    <span class="text-[9px] uppercase tracking-wider font-bold text-neutral-400 block">Quoted Products</span>
+                                    @foreach($quo->items as $it)
+                                        <div class="flex items-center justify-between text-xs text-neutral-800">
+                                            <span class="font-semibold truncate pr-2">{{ $it->product?->product_name ?? 'Item' }}</span>
+                                            <span class="text-neutral-500 text-[11px] shrink-0">{{ number_format($it->quantity) }} KG @ ₹{{ $it->rate }}/KG</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+
+                                <!-- Pricing Breakdown -->
+                                <div class="grid grid-cols-3 gap-2 text-center">
+                                    <div class="bg-[#F5F6F8] p-2 rounded-xl border border-neutral-200/60">
+                                        <span class="text-[9px] uppercase font-bold text-neutral-400 block">Subtotal</span>
+                                        <span class="font-bold text-xs text-neutral-700 mt-0.5 block truncate">{{ formatINR($quo->subtotal) }}</span>
+                                    </div>
+                                    <div class="bg-[#F5F6F8] p-2 rounded-xl border border-neutral-200/60">
+                                        <span class="text-[9px] uppercase font-bold text-neutral-400 block">GST (5%)</span>
+                                        <span class="font-bold text-xs text-neutral-500 mt-0.5 block truncate">{{ formatINR($quo->tax_amount) }}</span>
+                                    </div>
+                                    <div class="bg-[#F5F6F8] p-2 rounded-xl border border-neutral-200/60">
+                                        <span class="text-[9px] uppercase font-bold text-neutral-800 block">Total</span>
+                                        <span class="font-black text-xs text-neutral-900 mt-0.5 block truncate">{{ formatINR($quo->total_amount) }}</span>
+                                    </div>
+                                </div>
+
+                                @if($quo->payment_terms)
+                                    <div class="text-[11px] text-neutral-500 flex items-center gap-1">
+                                        <span class="font-bold text-neutral-600">Terms:</span>
+                                        <span class="truncate">{{ $quo->payment_terms }}</span>
+                                    </div>
+                                @endif
+                            </div>
+
+                            <div class="pt-3 border-t border-neutral-100 flex items-center justify-end gap-2">
+                                <a
+                                    href="{{ route('quotations.show', $quo->id) }}"
+                                    target="_blank"
+                                    class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] inline-flex items-center gap-1 transition-colors"
+                                >
+                                    📄 PDF
+                                </a>
+                                <a
+                                    href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $customer->primary_phone ?: '919826011223') }}?text={{ urlencode('Hi ' . ($customer->primary_contact_person ?: 'Sir') . ', sharing our official Quotation ' . $quo->quotation_number . ' for ' . formatINR($quo->total_amount) . '. View here: ' . route('quotations.show', $quo->id)) }}"
+                                    target="_blank"
+                                    class="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[11px] inline-flex items-center gap-1 transition-colors"
+                                >
+                                    💬 WhatsApp
+                                </a>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </div>
 
         <!-- Samples & Trials -->
@@ -618,94 +786,85 @@
                 </div>
             </div>
 
-            <!-- Documents Table -->
-            <div class="border border-neutral-200/80 rounded-2xl overflow-hidden shadow-2xs">
-                <table class="w-full text-left text-xs border-collapse">
-                    <thead class="bg-[#F5F6F8] text-[10px] font-mono text-neutral-500 uppercase border-b border-neutral-200">
-                        <tr>
-                            <th class="p-3 pl-4">Type</th>
-                            <th class="p-3">Document #</th>
-                            <th class="p-3">Connected Transaction</th>
-                            <th class="p-3">Date</th>
-                            <th class="p-3 text-right">Amount (₹)</th>
-                            <th class="p-3 text-center">Version</th>
-                            <th class="p-3 text-center">Status</th>
-                            <th class="p-3 pr-4 text-right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-neutral-100 bg-white">
-                        @forelse($customer->documents as $doc)
-                            <tr class="hover:bg-[#F5F6F8]/60 transition-colors">
-                                <td class="p-3 pl-4 whitespace-nowrap">
+            <!-- Documents List -->
+            @if($customer->documents->isEmpty())
+                <div class="p-8 text-center bg-white rounded-3xl border border-neutral-200/60 shadow-2xs space-y-2">
+                    <div class="w-10 h-10 rounded-2xl bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto text-lg">📁</div>
+                    <p class="font-extrabold text-sm text-neutral-800">No Documents Found</p>
+                    <p class="text-xs text-neutral-400">Zero documents uploaded for {{ $customer->company_name }} yet.</p>
+                </div>
+            @else
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach($customer->documents as $doc)
+                        <div class="bg-white rounded-2xl border border-neutral-200/80 p-4 space-y-3 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
+                            <div class="space-y-2.5">
+                                <div class="flex items-start justify-between gap-2">
                                     <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border {{ $doc->type_badge_color }}">
                                         {{ $doc->type_label }}
                                     </span>
-                                </td>
-                                <td class="p-3">
-                                    <a href="{{ route('documents.preview', $doc->id) }}" target="_blank" class="font-extrabold text-neutral-900 font-display hover:underline">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#F5F6F8] text-neutral-700">
+                                            v{{ $doc->current_version }}
+                                        </span>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase {{ $doc->status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : ($doc->status === 'OVERDUE' ? 'bg-rose-50 text-rose-700' : 'bg-[#F5F6F8] text-neutral-700') }}">
+                                            {{ $doc->status }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <a href="{{ route('documents.preview', $doc->id) }}" target="_blank" class="font-extrabold text-sm text-neutral-900 font-display hover:underline block truncate">
                                         {{ $doc->document_number }}
                                     </a>
-                                    <span class="text-[10px] text-neutral-400 font-mono block">{{ $doc->activeVersion?->file_name ?? 'Document File' }}</span>
-                                </td>
-                                <td class="p-3 whitespace-nowrap">
-                                    <div class="flex items-center gap-1 flex-wrap">
-                                        @if($doc->salesOrder)
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200" title="Linked Sales Order">
-                                                SO: {{ $doc->salesOrder->order_number }}
-                                            </span>
-                                        @endif
-                                        @if($doc->commercialShipment)
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200" title="Linked Shipment LR">
-                                                LR: {{ $doc->commercialShipment->lr_number }}
-                                            </span>
-                                        @endif
-                                        @if($doc->invoice)
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200" title="Linked Tax Invoice">
-                                                INV: {{ $doc->invoice->invoice_number }}
-                                            </span>
-                                        @endif
-                                        @if(!$doc->salesOrder && !$doc->commercialShipment && !$doc->invoice)
-                                            <span class="text-neutral-400 italic text-[10px]">Direct Vault</span>
-                                        @endif
+                                    <span class="text-[10px] text-neutral-400 font-mono block truncate">{{ $doc->activeVersion?->file_name ?? 'Document File' }}</span>
+                                </div>
+
+                                <div class="p-2.5 bg-[#F5F6F8] rounded-xl border border-neutral-200/60 space-y-1.5 text-xs">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[10px] uppercase font-bold text-neutral-400">Date</span>
+                                        <span class="font-mono font-medium text-neutral-700">{{ $doc->document_date?->format('d M Y') ?? '—' }}</span>
                                     </div>
-                                </td>
-                                <td class="p-3 font-mono whitespace-nowrap">
-                                    {{ $doc->document_date?->format('d M Y') ?? '—' }}
-                                </td>
-                                <td class="p-3 text-right font-black font-display whitespace-nowrap">
-                                    {{ formatINR($doc->total_amount) }}
-                                </td>
-                                <td class="p-3 text-center whitespace-nowrap">
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#F5F6F8] text-neutral-700">
-                                        v{{ $doc->current_version }}
-                                    </span>
-                                </td>
-                                <td class="p-3 text-center whitespace-nowrap">
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase {{ $doc->status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : ($doc->status === 'OVERDUE' ? 'bg-rose-50 text-rose-700' : 'bg-[#F5F6F8] text-neutral-700') }}">
-                                        {{ $doc->status }}
-                                    </span>
-                                </td>
-                                <td class="p-3 pr-4 text-right whitespace-nowrap">
-                                    <div class="flex items-center justify-end gap-1.5">
-                                        <a href="{{ route('documents.preview', $doc->id) }}" target="_blank" class="px-3 py-1 rounded-full text-[11px] font-bold bg-[#091315] text-[#D7FF53] hover:bg-black transition-all">
-                                            View
-                                        </a>
-                                        <a href="{{ route('documents.download', $doc->id) }}" class="p-1 rounded-full text-neutral-600 hover:bg-neutral-100" title="Download">
-                                            📥
-                                        </a>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[10px] uppercase font-bold text-neutral-400">Amount</span>
+                                        <span class="font-black font-display text-neutral-900">{{ formatINR($doc->total_amount) }}</span>
                                     </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="8" class="p-8 text-center text-neutral-400">
-                                    Zero documents uploaded for {{ $customer->company_name }} yet.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                                </div>
+
+                                <!-- Connected Transaction -->
+                                <div class="flex items-center gap-1 flex-wrap">
+                                    @if($doc->salesOrder)
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200" title="Linked Sales Order">
+                                            SO: {{ $doc->salesOrder->order_number }}
+                                        </span>
+                                    @endif
+                                    @if($doc->commercialShipment)
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200" title="Linked Shipment LR">
+                                            LR: {{ $doc->commercialShipment->lr_number }}
+                                        </span>
+                                    @endif
+                                    @if($doc->invoice)
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200" title="Linked Tax Invoice">
+                                            INV: {{ $doc->invoice->invoice_number }}
+                                        </span>
+                                    @endif
+                                    @if(!$doc->salesOrder && !$doc->commercialShipment && !$doc->invoice)
+                                        <span class="text-neutral-400 italic text-[10px]">Direct Vault</span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <div class="pt-3 border-t border-neutral-100 flex items-center justify-end gap-1.5">
+                                <a href="{{ route('documents.preview', $doc->id) }}" target="_blank" class="px-3 py-1 rounded-full text-[11px] font-bold bg-[#091315] text-[#D7FF53] hover:bg-black transition-all">
+                                    View
+                                </a>
+                                <a href="{{ route('documents.download', $doc->id) }}" class="p-1 rounded-full text-neutral-600 hover:bg-neutral-100 text-xs" title="Download">
+                                    📥
+                                </a>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </div>
     </div>
 

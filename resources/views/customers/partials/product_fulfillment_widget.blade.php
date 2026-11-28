@@ -54,7 +54,7 @@
         @endif
     </div>
 
-    <!-- Product Summary Content -->
+    <!-- Product Summary Content (Zero-Table Card Grid) -->
     @if($totalItemsCount === 0)
         <div class="py-10 text-center space-y-2 bg-white rounded-2xl border border-dashed border-neutral-200">
             <div class="text-3xl">📦</div>
@@ -64,144 +64,66 @@
             </p>
         </div>
     @else
-        <div class="overflow-x-auto rounded-2xl border border-neutral-200/80 bg-white shadow-2xs">
-            <table class="w-full text-left text-xs border-collapse">
-                <thead>
-                    <tr class="bg-[#F5F6F8] text-neutral-600 border-b border-neutral-200/80 uppercase text-[10px] tracking-wider font-mono">
-                        <th class="py-3 px-4 font-bold">Product / Grade</th>
-                        <th class="py-3 px-3 font-bold text-center">Orders</th>
-                        <th class="py-3 px-4 font-bold text-right">Total Ordered</th>
-                        <th class="py-3 px-4 font-bold text-right">Shipped / Dispatched</th>
-                        <th class="py-3 px-4 font-bold text-right">Pending to Supply</th>
-                        <th class="py-3 px-4 font-bold text-center min-w-[140px]">Fulfillment Status</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-neutral-100">
-                    @foreach($productSummary as $item)
-                        @php
-                            $isComplete = $item->status === 'COMPLETED';
-                            $isPartial = $item->status === 'PARTIAL';
-                            $uom = $item->uom ?: 'KG';
-                        @endphp
-                        <tr class="hover:bg-neutral-50/70 transition-colors">
-                            <!-- Product Name & Identifiers -->
-                            <td class="py-3 px-4">
-                                <div class="font-bold text-neutral-900 font-display text-sm">
-                                    {{ $item->product_name }}
-                                </div>
-                                <div class="flex items-center gap-2 mt-0.5 text-neutral-400 text-[11px] font-sans">
-                                    @if(!empty($item->product_code))
-                                        <span class="font-mono text-[10px] font-semibold px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600 border border-neutral-200/70">
-                                            {{ $item->product_code }}
-                                        </span>
-                                    @endif
-                                    <span>Unit: <b class="text-neutral-700 font-mono">{{ $uom }}</b></span>
-                                </div>
-                            </td>
-
-                            <!-- Order Count -->
-                            <td class="py-3 px-3 text-center whitespace-nowrap">
-                                <span class="font-mono text-xs font-semibold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700">
-                                    {{ $item->orders_count }} {{ Str::plural('PO', $item->orders_count) }}
-                                </span>
-                            </td>
-
-                            <!-- Total Ordered -->
-                            <td class="py-3 px-4 text-right whitespace-nowrap">
-                                <div class="font-mono font-bold text-neutral-900 text-xs">
-                                    {{ number_format($item->total_ordered) }} <span class="text-[10px] font-normal text-neutral-500">{{ $uom }}</span>
-                                </div>
-                                @if(strtoupper($uom) === 'KG' && $item->total_ordered >= 1000)
-                                    <div class="text-[10px] text-neutral-400 font-mono font-medium">
-                                        {{ number_format(round($item->total_ordered / 1000, 2), 2) }} MT
-                                    </div>
-                                @endif
-                            </td>
-
-                            <!-- Total Shipped -->
-                            <td class="py-3 px-4 text-right whitespace-nowrap">
-                                <div class="font-mono font-bold text-emerald-600 text-xs">
-                                    {{ number_format($item->total_shipped) }} <span class="text-[10px] font-normal text-emerald-500">{{ $uom }}</span>
-                                </div>
-                                @if(strtoupper($uom) === 'KG' && $item->total_shipped >= 1000)
-                                    <div class="text-[10px] text-emerald-500 font-mono font-medium">
-                                        {{ number_format(round($item->total_shipped / 1000, 2), 2) }} MT
-                                    </div>
-                                @endif
-                            </td>
-
-                            <!-- Pending Balance -->
-                            <td class="py-3 px-4 text-right whitespace-nowrap">
-                                @if($item->total_pending > 0)
-                                    <div class="inline-flex flex-col items-end">
-                                        <span class="font-mono font-black text-amber-600 text-xs px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200/80">
-                                            {{ number_format($item->total_pending) }} {{ $uom }}
-                                        </span>
-                                        @if(strtoupper($uom) === 'KG' && $item->total_pending >= 1000)
-                                            <span class="text-[10px] text-amber-700 font-mono font-medium mt-0.5">
-                                                ({{ number_format(round($item->total_pending / 1000, 2), 2) }} MT)
-                                            </span>
-                                        @endif
-                                    </div>
-                                @else
-                                    <span class="font-mono font-bold text-emerald-700 text-xs px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200/80 inline-flex items-center gap-1">
-                                        <span>✓</span>
-                                        <span>0 {{ $uom }}</span>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            @foreach($productSummary as $item)
+                @php
+                    $isComplete = $item->status === 'COMPLETED';
+                    $isPartial = $item->status === 'PARTIAL';
+                    $uom = $item->uom ?: 'KG';
+                @endphp
+                <div class="bg-white rounded-2xl border border-neutral-200/80 p-4 shadow-2xs hover:border-neutral-300 transition-all space-y-3">
+                    <!-- Product Top Header -->
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h5 class="font-bold text-sm text-neutral-900 font-display">{{ $item->product_name }}</h5>
+                            <div class="flex items-center gap-2 mt-0.5 text-neutral-400 text-[11px]">
+                                @if(!empty($item->product_code))
+                                    <span class="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 border border-neutral-200/70">
+                                        {{ $item->product_code }}
                                     </span>
                                 @endif
-                            </td>
+                                <span class="font-mono">{{ $item->orders_count }} {{ Str::plural('Order', $item->orders_count) }}</span>
+                                <span>·</span>
+                                <span>Unit: <b class="text-neutral-700 font-mono">{{ $uom }}</b></span>
+                            </div>
+                        </div>
 
-                            <!-- Progress & Status -->
-                            <td class="py-3 px-4 text-center whitespace-nowrap">
-                                <div class="flex flex-col items-center gap-1">
-                                    <div class="flex items-center justify-between w-full max-w-[130px] text-[10px] font-mono">
-                                        <span class="font-bold {{ $isComplete ? 'text-emerald-700' : 'text-neutral-700' }}">
-                                            {{ $item->fulfillment_percentage }}%
-                                        </span>
-                                        <span class="text-[9px] uppercase font-bold tracking-tight {{ $isComplete ? 'text-emerald-700' : ($isPartial ? 'text-amber-700' : 'text-neutral-500') }}">
-                                            {{ $isComplete ? 'Completed' : ($isPartial ? 'Partial' : 'Pending') }}
-                                        </span>
-                                    </div>
-                                    <div class="w-full max-w-[130px] h-2 bg-neutral-100 rounded-full overflow-hidden p-0.5 border border-neutral-200/60">
-                                        <div
-                                            class="h-full rounded-full transition-all duration-500 {{ $isComplete ? 'bg-emerald-500' : ($isPartial ? 'bg-amber-500' : 'bg-neutral-300') }}"
-                                            style="width: {{ $item->fulfillment_percentage }}%"
-                                        ></div>
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-                @if($totalItemsCount > 1)
-                    <tfoot>
-                        <tr class="bg-[#F9FAFB] border-t-2 border-neutral-200 font-bold text-xs text-neutral-900">
-                            <td class="py-3 px-4 font-display">
-                                Total ({{ $totalItemsCount }} Products)
-                            </td>
-                            <td class="py-3 px-3 text-center font-mono">
-                                {{ $productSummary->sum('orders_count') }} POs
-                            </td>
-                            <td class="py-3 px-4 text-right font-mono font-black">
-                                {{ number_format($totalOrdered) }} KG
-                            </td>
-                            <td class="py-3 px-4 text-right font-mono font-black text-emerald-600">
-                                {{ number_format($totalShipped) }} KG
-                            </td>
-                            <td class="py-3 px-4 text-right font-mono font-black">
-                                <span class="{{ $totalPending > 0 ? 'text-amber-600' : 'text-emerald-600' }}">
-                                    {{ number_format($totalPending) }} KG
-                                </span>
-                            </td>
-                            <td class="py-3 px-4 text-center font-mono text-[11px]">
-                                <span class="{{ $overallPct >= 100 ? 'text-emerald-700 font-bold' : 'text-neutral-700' }}">
-                                    {{ $overallPct }}% Fulfilled
-                                </span>
-                            </td>
-                        </tr>
-                    </tfoot>
-                @endif
-            </table>
+                        <span class="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider shrink-0 {{ $isComplete ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : ($isPartial ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-neutral-100 text-neutral-700 border border-neutral-200') }}">
+                            {{ $isComplete ? '✓ Fulfilled' : ($isPartial ? '⚡ Partial' : '⏳ Pending') }}
+                        </span>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between text-[11px] font-mono">
+                            <span class="text-neutral-500 font-medium">Supply Progress:</span>
+                            <span class="font-bold {{ $isComplete ? 'text-emerald-700' : 'text-neutral-800' }}">{{ $item->fulfillment_percentage }}%</span>
+                        </div>
+                        <div class="w-full h-2 bg-neutral-100 rounded-full overflow-hidden border border-neutral-200/60 p-0.5">
+                            <div
+                                class="h-full rounded-full transition-all duration-500 {{ $isComplete ? 'bg-emerald-500' : ($isPartial ? 'bg-amber-500' : 'bg-neutral-300') }}"
+                                style="width: {{ $item->fulfillment_percentage }}%"
+                            ></div>
+                        </div>
+                    </div>
+
+                    <!-- 3-Column Metrics -->
+                    <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono pt-1">
+                        <div class="bg-[#F5F6F8] p-2 rounded-xl border border-neutral-200/60">
+                            <span class="text-[9px] uppercase font-bold text-neutral-400 block">Ordered</span>
+                            <span class="font-black text-neutral-900 text-xs mt-0.5 block">{{ number_format($item->total_ordered) }} <span class="text-[9px] font-normal text-neutral-400">{{ $uom }}</span></span>
+                        </div>
+                        <div class="bg-[#F5F6F8] p-2 rounded-xl border border-neutral-200/60">
+                            <span class="text-[9px] uppercase font-bold text-emerald-600 block">Shipped</span>
+                            <span class="font-black text-emerald-600 text-xs mt-0.5 block">{{ number_format($item->total_shipped) }} <span class="text-[9px] font-normal text-emerald-500">{{ $uom }}</span></span>
+                        </div>
+                        <div class="p-2 rounded-xl border {{ $item->total_pending > 0 ? 'bg-amber-50/60 border-amber-200/80' : 'bg-[#F5F6F8] border-neutral-200/60' }}">
+                            <span class="text-[9px] uppercase font-bold {{ $item->total_pending > 0 ? 'text-amber-700' : 'text-neutral-400' }} block">Pending</span>
+                            <span class="font-black text-xs mt-0.5 block {{ $item->total_pending > 0 ? 'text-amber-600' : 'text-neutral-400' }}">{{ number_format($item->total_pending) }} <span class="text-[9px] font-normal text-neutral-400">{{ $uom }}</span></span>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
         </div>
     @endif
 </div>

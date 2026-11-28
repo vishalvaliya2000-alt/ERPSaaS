@@ -11,7 +11,7 @@
             <div class="flex items-center gap-2 mb-1">
                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F6F8] text-neutral-600 border border-neutral-200/80 font-mono uppercase tracking-wider">Directory</span>
                 <span class="text-xs text-neutral-300">·</span>
-                <span class="text-xs text-neutral-500 font-medium">{{ count($customers) }} Active Accounts</span>
+                <span class="text-xs text-neutral-500 font-medium">{{ $metrics['total_customers'] ?? count($customers) }} Active Accounts</span>
             </div>
             <h2 class="text-2xl font-black text-neutral-900 tracking-tight font-display">Clients</h2>
             <p class="text-xs text-neutral-500 mt-1 max-w-2xl">
@@ -34,25 +34,117 @@
         </div>
     </div>
 
+    <!-- Aggregate Quick Metrics -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl border border-neutral-200/80 p-4 shadow-2xs">
+            <span class="text-[10px] font-bold text-neutral-400 uppercase font-mono block">Total Accounts</span>
+            <p class="text-xl font-black text-neutral-900 font-display mt-0.5">{{ number_format($metrics['total_customers'] ?? 0) }}</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-200/80 p-4 shadow-2xs">
+            <span class="text-[10px] font-bold text-neutral-400 uppercase font-mono block">Total Lifetime Revenue</span>
+            <p class="text-xl font-black text-neutral-900 font-display mt-0.5">{{ formatINR($metrics['total_revenue'] ?? 0) }}</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-neutral-200/80 p-4 shadow-2xs">
+            <span class="text-[10px] font-bold text-neutral-400 uppercase font-mono block">Total Outstanding Balance</span>
+            <p class="text-xl font-black font-display mt-0.5 {{ ($metrics['total_outstanding'] ?? 0) > 0 ? 'text-rose-600' : 'text-emerald-600' }}">
+                {{ formatINR($metrics['total_outstanding'] ?? 0) }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div class="bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/80 p-4 shadow-2xs">
+        <form method="GET" action="{{ route('customers.index') }}" class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs">
+            <!-- Search Input -->
+            <div class="relative flex-1">
+                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">🔍</span>
+                <input
+                    type="text"
+                    name="search"
+                    value="{{ request('search', $search ?? '') }}"
+                    placeholder="Search by legal name, trade name, code, GSTIN, city or contact..."
+                    class="w-full pl-9 pr-8 py-2.5 bg-[#F5F6F8] border border-neutral-200/80 rounded-xl font-medium text-neutral-800 placeholder-neutral-400 focus:bg-white focus:ring-2 focus:ring-[#091315] focus:outline-hidden transition-all text-xs"
+                >
+                @if(request('search'))
+                    <a href="{{ route('customers.index', request()->except('search', 'page')) }}" class="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-700">✕</a>
+                @endif
+            </div>
+
+            <!-- Filters & Sort Controls -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <!-- Stage Filter -->
+                <select name="stage" onchange="this.form.submit()" class="px-3 py-2 bg-[#F5F6F8] border border-neutral-200/80 rounded-xl font-bold text-neutral-700 text-xs focus:ring-2 focus:ring-[#091315] focus:outline-hidden cursor-pointer">
+                    <option value="ALL" {{ request('stage') === 'ALL' || !request('stage') ? 'selected' : '' }}>Stage: All</option>
+                    <option value="ACTIVE" {{ request('stage') === 'ACTIVE' ? 'selected' : '' }}>Stage: Active</option>
+                    <option value="FIRST_ORDER" {{ request('stage') === 'FIRST_ORDER' ? 'selected' : '' }}>Stage: First Order</option>
+                    <option value="DORMANT" {{ request('stage') === 'DORMANT' ? 'selected' : '' }}>Stage: Dormant</option>
+                </select>
+
+                <!-- Sort Control -->
+                <select name="sort" onchange="this.form.submit()" class="px-3 py-2 bg-[#F5F6F8] border border-neutral-200/80 rounded-xl font-bold text-neutral-700 text-xs focus:ring-2 focus:ring-[#091315] focus:outline-hidden cursor-pointer">
+                    <option value="latest" {{ request('sort') === 'latest' || !request('sort') ? 'selected' : '' }}>Sort: Newest First</option>
+                    <option value="name_asc" {{ request('sort') === 'name_asc' ? 'selected' : '' }}>Sort: Name (A-Z)</option>
+                    <option value="name_desc" {{ request('sort') === 'name_desc' ? 'selected' : '' }}>Sort: Name (Z-A)</option>
+                    <option value="revenue_desc" {{ request('sort') === 'revenue_desc' ? 'selected' : '' }}>Sort: Highest Revenue</option>
+                    <option value="outstanding_desc" {{ request('sort') === 'outstanding_desc' ? 'selected' : '' }}>Sort: Highest Outstanding</option>
+                </select>
+
+                <button type="submit" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#091315] hover:bg-black transition-all cursor-pointer">
+                    Apply
+                </button>
+
+                @if(request('search') || request('stage') || request('sort'))
+                    <a href="{{ route('customers.index') }}" class="px-3 py-2 rounded-xl text-xs font-semibold text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100 transition-all">
+                        Reset
+                    </a>
+                @endif
+            </div>
+        </form>
+    </div>
+
     <!-- Customer Cards Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        @foreach($customers as $cust)
-            @php
-                $health = getHealthBadge($cust->health_score);
-                $orderedQty = $cust->total_ordered_qty;
-                $suppliedQty = $cust->total_supplied_qty;
-                $pendingQty = $cust->total_pending_qty;
-                $fulfillPct = $cust->fulfillment_percentage;
-            @endphp
-            <div class="bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/80 p-4 sm:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:border-neutral-400 transition-all flex flex-col justify-between group">
-                <div>
-                    <!-- Card Top Header -->
-                    <div class="flex items-start justify-between gap-3 mb-4">
-                        <div class="flex items-center gap-3.5">
-                            <div class="w-12 h-12 rounded-2xl bg-[#091315] text-[#D7FF53] font-black text-base flex items-center justify-center shadow-xs shrink-0 border border-neutral-800 font-display">
-                                {{ strtoupper(substr($cust->company_name, 0, 2)) }}
-                            </div>
-                            <div>
+    @if($customers->isEmpty())
+        <div class="p-12 text-center bg-white rounded-2xl sm:rounded-3xl border border-dashed border-neutral-200 shadow-2xs space-y-3">
+            <div class="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto text-xl">🏢</div>
+            <h3 class="font-extrabold text-base text-neutral-900 font-display">No Client Accounts Found</h3>
+            <p class="text-xs text-neutral-500 max-w-sm mx-auto">
+                @if(request('search') || request('stage'))
+                    No customers match your search or filter criteria. Try resetting filters or adjusting search terms.
+                @else
+                    Start building your customer directory by adding your first B2B buyer account.
+                @endif
+            </p>
+            <div class="pt-2">
+                @if(request('search') || request('stage'))
+                    <a href="{{ route('customers.index') }}" class="px-4 py-2 rounded-full text-xs font-bold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 transition-all inline-block">
+                        Clear All Filters
+                    </a>
+                @else
+                    <button @click="isAddCustomerOpen = true" class="px-5 py-2 rounded-full text-xs font-extrabold text-[#091315] bg-[#D7FF53] hover:bg-[#c8f043] transition-all cursor-pointer">
+                        + Add First Customer
+                    </button>
+                @endif
+            </div>
+        </div>
+    @else
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            @foreach($customers as $cust)
+                @php
+                    $health = getHealthBadge($cust->health_score);
+                    $orderedQty = $cust->total_ordered_qty;
+                    $suppliedQty = $cust->total_supplied_qty;
+                    $pendingQty = $cust->total_pending_qty;
+                    $fulfillPct = $cust->fulfillment_percentage;
+                @endphp
+                <div class="bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/80 p-4 sm:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:border-neutral-400 transition-all flex flex-col justify-between group">
+                    <div>
+                        <!-- Card Top Header -->
+                        <div class="flex items-start justify-between gap-3 mb-4">
+                            <div class="flex items-center gap-3.5">
+                                <div class="w-12 h-12 rounded-2xl bg-[#091315] text-[#D7FF53] font-black text-base flex items-center justify-center shadow-xs shrink-0 border border-neutral-800 font-display">
+                                    {{ strtoupper(substr($cust->company_name, 0, 2)) }}
+                                </div>
+                                <div>
                                     <div class="flex items-center gap-2 flex-wrap">
                                         <a href="{{ route('customers.show', $cust->id) }}" class="font-black text-base text-neutral-900 hover:text-[#091315] font-display transition-colors">
                                             {{ $cust->company_name }}
@@ -64,110 +156,118 @@
                                             {{ $cust->customer_code }}
                                         </span>
                                     </div>
-                                <p class="text-xs text-neutral-500 mt-0.5 flex items-center gap-1 font-medium">
-                                    <span>📍</span>
-                                    <span>{{ $cust->city ? $cust->city . ', ' : '' }}{{ $cust->state ?? 'India' }}</span>
+                                    <p class="text-xs text-neutral-500 mt-0.5 flex items-center gap-1 font-medium">
+                                        <span>📍</span>
+                                        <span>{{ $cust->city ? $cust->city . ', ' : '' }}{{ $cust->state ?? 'India' }}</span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <span class="text-xs font-bold px-3 py-1 rounded-full border flex items-center gap-1.5 shrink-0 font-mono {{ $health['bg'] }}">
+                                <span class="w-2 h-2 rounded-full {{ $health['dot'] }}"></span>
+                                {{ $health['label'] }}
+                            </span>
+                        </div>
+
+                        <!-- Contact & Tax Info -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3.5 bg-[#F5F6F8] rounded-2xl border border-neutral-200/60 text-xs text-neutral-600 mb-3.5">
+                            <div>
+                                <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Contact Person</span>
+                                <span class="font-bold text-neutral-800">{{ $cust->primary_contact_person ?? 'Purchases Head' }}</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">GSTIN</span>
+                                <span class="font-mono font-bold text-neutral-800">{{ $cust->gst_number ?? 'Unregistered' }}</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Phone / WhatsApp</span>
+                                <span class="font-medium text-neutral-700">{{ $cust->primary_phone ?? '—' }}</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Payment Terms</span>
+                                <span class="font-bold text-neutral-800">{{ $cust->payment_terms_days }} Days Credit</span>
+                            </div>
+                        </div>
+
+                        <!-- QUANTITY BREAKDOWN (Ordered, Supplied, Pending) -->
+                        <div class="p-3.5 bg-[#F5F6F8] rounded-2xl border border-neutral-200/60 mb-3.5">
+                            <div class="flex items-center justify-between text-[11px] font-bold text-neutral-800 mb-2.5">
+                                <span class="flex items-center gap-1 font-display">
+                                    <span>📦</span>
+                                    <span>Fulfillment & Dispatch:</span>
+                                </span>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold {{ $pendingQty > 0 ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200' }}">
+                                    {{ $fulfillPct }}% Supplied
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                                <div class="bg-white p-2.5 rounded-xl border border-neutral-200/80">
+                                    <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Total Ordered</span>
+                                    <p class="font-black text-neutral-900 font-display mt-0.5">{{ number_format($orderedQty) }} <span class="text-[10px] font-normal text-neutral-400">KG</span></p>
+                                </div>
+                                <div class="bg-white p-2.5 rounded-xl border border-neutral-200/80">
+                                    <span class="text-[10px] uppercase font-bold text-emerald-600 block font-mono">Supplied</span>
+                                    <p class="font-black text-emerald-600 font-display mt-0.5">{{ number_format($suppliedQty) }} <span class="text-[10px] font-normal text-emerald-500">KG</span></p>
+                                </div>
+                                <div class="bg-white p-2.5 rounded-xl border border-neutral-200/80">
+                                    <span class="text-[10px] uppercase font-bold {{ $pendingQty > 0 ? 'text-amber-600' : 'text-neutral-400' }} block font-mono">Pending</span>
+                                    <p class="font-black {{ $pendingQty > 0 ? 'text-amber-600' : 'text-neutral-400' }} font-display mt-0.5">{{ number_format($pendingQty) }} <span class="text-[10px] font-normal text-neutral-400">KG</span></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Financial Summary -->
+                        <div class="grid grid-cols-3 gap-2 text-center py-2.5 border-y border-neutral-100 mb-4">
+                            <div>
+                                <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Total Revenue</span>
+                                <p class="font-black text-neutral-900 text-sm font-display mt-0.5">{{ formatINR($cust->total_revenue > 0 ? $cust->total_revenue : (float) $cust->invoices->sum('total_amount')) }}</p>
+                            </div>
+                            <div>
+                                <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Outstanding</span>
+                                <p class="font-black text-sm font-display mt-0.5 {{ $cust->outstanding_amount > 0 ? 'text-rose-600' : 'text-emerald-600' }}">
+                                    {{ formatINR($cust->outstanding_amount) }}
                                 </p>
                             </div>
+                            <div>
+                                <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Orders</span>
+                                <p class="font-black text-neutral-900 text-sm font-display mt-0.5">{{ count($cust->salesOrders) }} POs</p>
+                            </div>
                         </div>
 
-                        <span class="text-xs font-bold px-3 py-1 rounded-full border flex items-center gap-1.5 shrink-0 font-mono {{ $health['bg'] }}">
-                            <span class="w-2 h-2 rounded-full {{ $health['dot'] }}"></span>
-                            {{ $health['label'] }}
+                        <!-- AI Insights -->
+                        @if($cust->aiInsights->count() > 0)
+                            <div class="p-3.5 bg-[#F3FED4]/60 rounded-2xl border border-[#D7FF53] text-xs mb-4">
+                                <span class="text-[#091315] font-extrabold block mb-1 font-display flex items-center gap-1.5">
+                                    <span>⚡</span>
+                                    <span>AI Sales Intelligence</span>
+                                </span>
+                                <p class="text-neutral-700 leading-relaxed">{{ $cust->aiInsights->first()->summary }}</p>
+                            </div>
+                        @endif
+                    </div>
+
+                    <!-- Bottom Actions -->
+                    <div class="pt-3 flex items-center justify-between border-t border-neutral-100">
+                        <span class="text-xs text-neutral-500 font-medium">
+                            {{ $cust->followups->where('status', 'PENDING')->count() }} pending actions
                         </span>
-                    </div>
 
-                    <!-- Contact & Tax Info -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3.5 bg-[#F5F6F8] rounded-2xl border border-neutral-200/60 text-xs text-neutral-600 mb-3.5">
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Contact Person</span>
-                            <span class="font-bold text-neutral-800">{{ $cust->primary_contact_person ?? 'Purchases Head' }}</span>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">GSTIN</span>
-                            <span class="font-mono font-bold text-neutral-800">{{ $cust->gst_number ?? 'Unregistered' }}</span>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Phone / WhatsApp</span>
-                            <span class="font-medium text-neutral-700">{{ $cust->primary_phone ?? '—' }}</span>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Payment Terms</span>
-                            <span class="font-bold text-neutral-800">{{ $cust->payment_terms_days }} Days Credit</span>
-                        </div>
+                        <a href="{{ route('customers.show', $cust->id) }}" class="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold text-white bg-[#091315] hover:bg-black transition-all shadow-2xs cursor-pointer active:scale-95">
+                            <span>View Full 360 Profile</span>
+                            <span>→</span>
+                        </a>
                     </div>
-
-                    <!-- QUANTITY BREAKDOWN (Ordered, Supplied, Pending) -->
-                    <div class="p-3.5 bg-[#F5F6F8] rounded-2xl border border-neutral-200/60 mb-3.5">
-                        <div class="flex items-center justify-between text-[11px] font-bold text-neutral-800 mb-2.5">
-                            <span class="flex items-center gap-1 font-display">
-                                <span>📦</span>
-                                <span>Fulfillment & Dispatch:</span>
-                            </span>
-                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold {{ $pendingQty > 0 ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200' }}">
-                                {{ $fulfillPct }}% Supplied
-                            </span>
-                        </div>
-                        <div class="grid grid-cols-3 gap-2 text-center text-xs">
-                            <div class="bg-white p-2.5 rounded-xl border border-neutral-200/80">
-                                <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Total Ordered</span>
-                                <p class="font-black text-neutral-900 font-display mt-0.5">{{ number_format($orderedQty) }} <span class="text-[10px] font-normal text-neutral-400">KG</span></p>
-                            </div>
-                            <div class="bg-white p-2.5 rounded-xl border border-neutral-200/80">
-                                <span class="text-[10px] uppercase font-bold text-emerald-600 block font-mono">Supplied</span>
-                                <p class="font-black text-emerald-600 font-display mt-0.5">{{ number_format($suppliedQty) }} <span class="text-[10px] font-normal text-emerald-500">KG</span></p>
-                            </div>
-                            <div class="bg-white p-2.5 rounded-xl border border-neutral-200/80">
-                                <span class="text-[10px] uppercase font-bold {{ $pendingQty > 0 ? 'text-amber-600' : 'text-neutral-400' }} block font-mono">Pending</span>
-                                <p class="font-black {{ $pendingQty > 0 ? 'text-amber-600' : 'text-neutral-400' }} font-display mt-0.5">{{ number_format($pendingQty) }} <span class="text-[10px] font-normal text-neutral-400">KG</span></p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Financial Summary -->
-                    <div class="grid grid-cols-3 gap-2 text-center py-2.5 border-y border-neutral-100 mb-4">
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Total Revenue</span>
-                            <p class="font-black text-neutral-900 text-sm font-display mt-0.5">{{ formatINR($cust->total_revenue) }}</p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Outstanding</span>
-                            <p class="font-black text-sm font-display mt-0.5 {{ $cust->outstanding_amount > 0 ? 'text-rose-600' : 'text-emerald-600' }}">
-                                {{ formatINR($cust->outstanding_amount) }}
-                            </p>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-neutral-400 block font-mono">Orders</span>
-                            <p class="font-black text-neutral-900 text-sm font-display mt-0.5">{{ count($cust->salesOrders) }} POs</p>
-                        </div>
-                    </div>
-
-                    <!-- AI Insights -->
-                    @if($cust->aiInsights->count() > 0)
-                        <div class="p-3.5 bg-[#F3FED4]/60 rounded-2xl border border-[#D7FF53] text-xs mb-4">
-                            <span class="text-[#091315] font-extrabold block mb-1 font-display flex items-center gap-1.5">
-                                <span>⚡</span>
-                                <span>AI Sales Intelligence</span>
-                            </span>
-                            <p class="text-neutral-700 leading-relaxed">{{ $cust->aiInsights->first()->summary }}</p>
-                        </div>
-                    @endif
                 </div>
+            @endforeach
+        </div>
 
-                <!-- Bottom Actions -->
-                <div class="pt-3 flex items-center justify-between border-t border-neutral-100">
-                    <span class="text-xs text-neutral-500 font-medium">
-                        {{ $cust->followups->where('status', 'PENDING')->count() }} pending actions
-                    </span>
-
-                    <a href="{{ route('customers.show', $cust->id) }}" class="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold text-white bg-[#091315] hover:bg-black transition-all shadow-2xs cursor-pointer active:scale-95">
-                        <span>View Full 360 Profile</span>
-                        <span>→</span>
-                    </a>
-                </div>
+        <!-- Pagination -->
+        @if($customers->hasPages())
+            <div class="pt-4 flex justify-center">
+                {{ $customers->links() }}
             </div>
-        @endforeach
-    </div>
+        @endif
+    @endif
 
     <!-- Add Customer Modal -->
     <template x-teleport="body">
